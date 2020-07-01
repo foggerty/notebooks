@@ -1,0 +1,279 @@
+* Clojure
+Most of these notes are taken from /Getting Clojure, by Russ Olsen./  These are "oh god how does Clojure do X, and why wont it stop doing it" notes, not "how to implement Y in Clojure", notes.
+* REPL
+
+First, note that the ~doc~ function is in the ~clojure.repl~ name space.
+#+begin_src clojure
+(require 'clojure.repl)
+(doc doc)
+#+end_src
+
+There are a few predefined (dynamic) variables:
+#+begin_src clojure
+10
+20
+30
+
+;; *1-*n - results of last n commands.
+
+,*1 ;; 10
+,*2 ;; 20
+,*3 ;; 30
+
+(/ 1 0)
+
+;; *e - last exception
+,*e
+
+,*ns* ; #namespace[notebook.core]
+#+end_src
+* Basics
+** Truthy & Falsey
+Basically, anything other than ~nil~ or ~false~ are truthy.  Note that the empty list is truthy.
+** Symbols, Keywords & Vars
+Keywords => always evaluate to themselves.
+Symbols => always evaluate to what they're bound to.
+#+begin_src clojure
+:a ; :a
+
+fred ; error!
+(def fred 10)
+fred ; 10
+(class fred) ; java.lang.Long
+
+(def fred :ten)
+fred ; :ten
+(class fred) ; clojure.lang.Keyword
+
+'fred ; fred (i.e. the symbol fred)
+(class 'fred) ; clojure.lang.Symbol
+#+end_src
+
+Note that the 'class' of ~fred~ above, is dynamically determined by what fred is currently pointing to (remember that fred evaluates (returns) whatever it is referencing), but that fred /itself/ is a symbol.  So ~(def fred "Freddy")~ creates two objects, the symbol ~fred~ and the (string) value ~"Freddy"~
+
+This may explain my confusion when playing with scheme.  ~(foo 'bar)~ in my mind meant "apply the string bar to function foo", but in fact it means "apply /symbol/ bar to function foo".
+
+Symbols don't actually need to be bound to anything:
+#+begin_src clojure
+(class 'first-time-we-see-this-symbol) ; clojure.lang.Symbol
+#+end_src
+
+Note that the bindings between symbols and values are objects in themselves: vars.  You can access the binding associated with a symbol using the #' (reader macro?)
+#+begin_src clojure
+(def fred 10)
+#'fred ; #'notebook.core/fred
+(.get #'fred) ; 10 - the var's value
+(.-sym #'fred) ; fred - the var's symbol
+#+end_src
+** Dynamic vars
+Actually useful in Clojure, and not the global cluster-fuck I usually associate with dynamic variables (blame Emacs, although a lot of that loathing probably just comes down to a lack of name spaces).
+
+Define dynamic vars with ~^:dynamic~ meta-data.  Note that the convention is to use 'ear-muffs' to indicate that a var is dynamic:
+#+begin_src clojure
+(def ^:dynamic *fred* 10)
+#+end_src
+
+Once defined, it's like a normal var.  However, you can re-bind it for a given scope, kind of like optional lexical binding:
+#+begin_src clojure
+,*fred* ; 10
+(binding [*fred* 5] *fred*) ; 5
+#+end_src
+
+So every reference to ~*fred*~ inside of that binding will use the value ~5~ instead of ~10~.
+
+Note that you can set dynamic vars inside a binding:
+#+begin_src clojure
+(def ^:dynamic *fred* 10)
+,*fred* ; 10
+
+(binding [*fred* 5] *fred*) ; 5
+
+(binding [*fred* 5]
+  (foo fred) ; fred is 5
+  (set! *fred* 7)
+  (bar fred) ; fred is 7
+  ,*fred*) ; 7
+
+,*fred* ; 10
+
+(set! *fred* 7) ; ERROR!
+#+end_src
+
+They seem most useful for things like ~*print-length*~ which you want a standard value for, but may need to change it now and then for the a given context.
+
+** conj vs cons
+Or, ~CONJunction~ vs ~CONStruct~.
+
+What they do depends on the data structure being used.  For vectors, conj adds to the end (which makes sense, when you realise that vectors are basically fancy arrays, so to grow we 'add' (Clojure uses trees for internal representation, but hey) to the end.
+#+begin_src clojure
+(def fred [:a :b :c])
+(conj fred :d) ; [:a :b :c :d]
+#+end_src
+
+Lists grow from the front - they're linked lists (and under the hood, Clojure uses a three value node - value, next in list, and count of items in list (so when conjing to the front, it's previous + 1)), so fastest to create a new node and point 'next' to the front of the existing list.
+#+begin_src clojure
+(def ethel '(:a :b :c))
+(conj ethel :d) ; (:d :a :b :c)
+#+end_src
+
+CONS will always add to the front, and always return a SEQ:
+#+begin_src clojure
+(cons :d fred)  ; (:d :a :b :c)
+(cons :d ethel) ; (:d :a :b :c)
+#+end_src
+** Functions
+Multi arity - pretty obvious, just wrap each instance in a list:
+#+begin_src clojure
+(defn greet
+  ([name] (str "Hello " name "!"))
+  ([title name] (str "Hello " title " " name "!")))
+
+(greet "Fred") ; "Hello Fred!"
+(greet "Lord" "Fred") ; "Hello Lord Fred!"
+
+#+end_src
+
+Of course you can call one arity from another:
+#+begin_src clojure
+(defn greet
+  ([name] (greet "Citizen" name))
+  ([title name] (str "Hello " title " " name "!")))
+
+(greet "Fred") ; "Hello Citizen Fred!"
+#+end_src
+
+For an unknown numner of params, put a symbol after '&' and all the remaining arguments (if any) will then be bound to the symbol:
+#+begin_src clojure
+(defn thang [x y & remaining]
+  (do
+    (println (+ x y))
+    remaining))
+
+(thang 1 2 3 4 5) ; (3 4 5)
+#+end_src
+
+TODO - Destructuring
+** Namespaces
+Not a lot to say, they're namespaces.
+
+Define your own today with this one easy trick: ~(ns foo)~
+
+Conventions:
+- concatenate with ~.~
+- the namespace ~foo.bar~ is expected to be found in the file ~foo/bar.clj~ under the ~src~ directory.
+
+To use an existing namespace:
+#+begin_src clojure
+;; Imports bar.baz, but any calls still need to be fully qualified.
+(ns foo
+  (:require bar.baz))
+
+;; Use the :as keyword to alias bar.baz to baz:
+(ns foo
+  (:require [bar.baz :as baz] ))
+
+;; If using a stand-alone require:
+(require '[bar.baz : as baz])
+#+end_src
+
+Note: don't bother with the ~:refer~ keyword, as it negates the point of using namespaces.
+
+Just remember that a single ~(require foo)~ statement is quite different from ~(ns foo (:require...))~ in terms of quoting etc.
+
+When in the REPL, you may need to reload a namespace after working on it, or unload it to remove (now) unused functions:
+#+begin_src clojure
+(require :reload foo.bar) ; force reload
+(na-unmap foo.bar) ; unbind all associated symbols
+#+end_src
+
+Finally, namespaces are /not/ hierarchical.  ~foo.bar.baz~ is not 'under' ~foo.bar~.  Namespaces are just maps.
+** Introspection
+There's a fair bit of it, things like the ~ns-map~ or ~namespace~ functions, for instance, but worry about that if I ever need it.
+** Equivalence
+There are three main operations, ~=~, ~==~, and ~identical?~
+
+~=~ Works mainly on values, including the same value represented with different types:
+#+begin_src clojure
+(= 2 2) ; true
+(= (float 2.0) (double 2.0)) ; true
+(= 2 2N) ; true,  N=BigInt
+(= 4/2 2) ; true
+#+end_src
+
+But be aware that while (say)) floats and doubles can be compared, ints and decimal values cannot, and neither can ratios and decimals.  This is because the types of numbers are divided up into categories: ints and ratios (Byte, Integer, Short, Long, BigInteger & BigInt), floating point (float double), and finally decimal (BigDecimal).  ~=~ will work in any of these categories.
+
+To compare numbers in different categories, use ~==~:
+#+begin_src clojure
+(= 2 2.0) ; int vs float, false
+(== 2 2.0) ; int vs float true
+#+end_src
+
+Sequential collections (vectors, lists, queues and sequences)are considered equal if they have the same values in the same order:
+#+begin_src clojure
+(= '(1 2 3) [1 2 3]) ; true
+
+;; note that = is used when comparing the individual values:
+(= '(1 2 3) [1.0 2 3]) ; false
+
+;; Clojure will perform a deep comparison with nested data structures:
+(= [1 2 [3 4]] '(1 2 (3 4))) ; true
+#+end_src
+
+Sets are considered equal if they have the same items - ordering is ignored.  The same applies to maps - they must have the same keys that resolve to the same value, and again order in unimportant.
+#+begin_src clojure
+(= #{1 2 3} #{3 2 1}) ; true
+#+end_src
+
+Note that sequences cannot be compared with ~==~.
+
+Finally, to determine if two things are the same object in memory, use the ~identical?~ function:
+#+begin_src clojure
+(identical? 2 2) ; true (works for values too)
+(def s1 [1 2 3])
+(def s2 [1 2 3])
+(identical? s1 s2) ; false
+(identical? '(1 2 3) [1 2 3]) ; false
+(identical? s1 s1) ; true
+(identical? :a :a) ; true - keywords resolve to same object
+(def str1 "abc")
+(def str2 "abc")
+(identical? str1 str2) ; true, because of string pooling.
+(identical? 'a 'a) ; false, because each symbol refers to own var.
+#+end_src
+
+TODO: look into why the same symbol defined in the same file gets a separate var?!?
+* TODO Error Handling
+Basically, it's done with exceptions.  Fark.  One day I'll learn about Scheme's error handling magic...   One day.
+* Multimethods
+One of the multiple ways that Clojure handles polymorphism.  Single method, multiple implementations, keyed off of the value returned by a dispatch function.
+
+First, define the dispatch function:
+
+#+begin_src clojure
+(defn dispatch-on-foo [foo]
+  (cond (contains? foo :bar) :bar
+        ((and (contains? foo :baz)
+              (some-func foo))) :baz
+        :else :wagh))
+#+end_src
+
+This is also where you define the recognised keys (obviously, they can be any value, doesn't have to be a keyword).
+
+Next, define the template for the multi method:
+
+#+begin_src clojure
+(defmulti fooinator dispatch-on-foo)
+#+end_src
+
+Finally, create the implementation functions, with a value to key each one off:
+
+#+begin_src clojure
+(defmethod fooinator :bar [foo] (...))
+(defmethod fooinator :baz [foo] (...))
+(defmethod fooinator :wagh [foo] panic!)
+#+end_src
+
+Note that you can define an implementation using the ~:default~ keyword, and that without it, an exception will be thrown if no match can be found.
+
+Multimethods can be defined in another file, so useful as an extension point for libraries.
+* TODO Pre and Post Conditions

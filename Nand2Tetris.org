@@ -1,0 +1,169 @@
+* ASM
+** Syntax
+
+[[http://www.marksmath.com/tecs/hack-asm/hack-asm.html][There's an online guide here.]]
+
+~DEST=COMP;JMP~
+
+Both DEST and JMP can be empty.
+
+If ~DEST~ is empty, then ~=~ is omitted.
+If JMP is empty, then ~;~ is omitted.
+
+A single instruction looks something like:
+
+|-------------+---------+---------------------+----------+----------|
+| Compute bit | Ignored |       COMP          |   DEST   |   JMP    |
+|-------------+---------+---------------------+----------+----------|
+|      1      |   1 1   | a c1 c2 c3 c4 c5 c6 | d1 d2 d3 | j1 j2 j3 |
+|-------------+---------+---------------------+----------+----------|
+  
+The following code:
+
+~(LOOP)~
+~.~
+~D;JEQ~
+~.~
+~.~
+~@LOOP~
+~0;JMP~
+
+will:
+ 1) ~(LOOP)~ - tell the assembler to associate LOOP with the address (in instruction RAM) of the instruction that follows.
+ 2) ~D;JEQ~ - treats 'D' as a compute instruction; i.e., an identity function (in fact, it's an ALU instruction to return the value in register D).  If the value in D equals 0, it will jump.
+ 3) ~@LOOP~ - load the address from step 1 into the A register
+ 4) ~0;JMP~ - jump to the (instruction) memory address now stored in A, i.e. LOOP.  Because there must always be a computation, the convention is to use '0'.
+    
+*** COMP
+
+Remember that the following are all mnemonics; that is, D+1 is /not/ an arithmetic expression, it's a mnemonic that represents a single ALU instruction.
+
+Also, A, M & D just return their values (the dereferenced value in M's case).
+
+|----------+----------|
+| When a=0 | Whan a=1 |
+|----------+----------|
+| 0        | M        |
+| 1        | !M       |
+| -1       | -M       |
+| D        | M+1      |
+| A        | M-1      |
+| !D       | D+M      |
+| !A       | D-M      |
+| -D       | M-D      |
+| -A       | D&M      |
+| D+1      | D\vert{}M      |
+| A+1      |          |
+| D-1      |          |
+| A-1      |          |
+| D+A      |          |
+| D-A      |          |
+| A-D      |          |
+| D&A      |          |
+| D\vert{}A      |          |
+|----------+----------|
+
+*** JMP
+
+Apart from null and JMP (jump, no conditional), each of these is a conditional that's applied to the output of the ALU, after the C instruction has been computed.  Or to put it another way, the result of COMP will be compared to 0.
+
+(Remember that A, M or D by themselves act as identity functions when in the COMP field, so ~D;JGT~ will jump id the value in D is greater than 0.)
+
+|----+----+----+----------+---------|
+| J1 | J2 | J3 | Mnemonic | Effect  |
+|----+----+----+----------+---------|
+|  0 |  0 |  0 | null     | no jump |
+|  0 |  0 |  1 | JGT      | if > 0  |
+|  0 |  1 |  0 | JEQ      | if = 0  |
+|  0 |  1 |  1 | JGE      | if >= 0 |
+|  1 |  0 |  0 | JLT      | if < 0  |
+|  1 |  0 |  1 | JNE      | if != 0 |
+|  1 |  1 |  0 | JLE      | if <= 0 |
+|  1 |  1 |  1 | JMP      | jump    |
+|----+----+----+----------+---------|
+
+*** DEST
+
+|----+----+----+----------+---------------------------|
+| d1 | d2 | d3 | Mnemonic | Destination               |
+|----+----+----+----------+---------------------------|
+|  0 |  0 |  0 | null     | Do not store anywhere     |
+|  0 |  0 |  1 | M        | RAM[A]                    |
+|  0 |  1 |  0 | D        | D register                |
+|  0 |  1 |  1 | MD       | RAM[A] & D register       |
+|  1 |  0 |  0 | A        | A register                |
+|  1 |  0 |  1 | AM       | A register and RAM[A]     |
+|  1 |  1 |  0 | AD       | A register and D register |
+|  1 |  1 |  1 | AMD      | A register, RAM[A] and D  |
+|----+----+----+----------+---------------------------|
+
+
+#  LocalWords:  JNE JLE ALU
+** Symbols
+*** Virtual Registers
+ R0 to R15 refer to memory locations 0-15.
+
+*** Predefined Pointers
+ - SP   :: memory location 0
+ - LCL  :: memory location 2
+ - ARG  :: memory location 3
+ - THIS :: memory location 4
+ - THAT :: memory location 5
+
+*** Screen & Keyboard
+ - KBD :: RAM[24576]
+ - SCREEN :: RAM[16384]
+
+** Keyboard codes
+
+Every key press results in the ASCII value for that key appearing in ~RAM[24576]~ (0x6000).  In addition, the following codes are recognised:
+
+|-------------+---------|
+| Key pressed |    Code |
+|-------------+---------|
+| newline     |     128 |
+| backspace   |     129 |
+| left arrow  |     130 |
+| up arrow    |     131 |
+| right arrow |     132 |
+| down arrow  |     133 |
+| home        |     134 |
+| end         |     135 |
+| page up     |     136 |
+| page down   |     137 |
+| insert      |     138 |
+| delete      |     139 |
+| esc         |     140 |
+| f1-f12      | 141-152 |
+|-------------+---------|
+** Screen
+
+Located at memory location 16384, the screen takes up 8k in memory and is 512 by 256 pixels.
+
+Each row is represented by 32 consecutive words, so a point located at x,y is mapped to the x=c%16 bit from RAM[16384 + y*32 + x/16]
+** Assignment
+
+It's not possible to directly assign to a memory location, i.e.:
+
+~R0=D~
+
+will not work.  Instead, set A to point at R0, and then write to M:
+
+~@R0~
+~M=D~
+
+In the same way, you cannot assign directly to D or M:
+
+~D=2 //no!~
+
+Instead, set the value in the A register, and then assign it to D:
+
+~@2~
+~D=A~
+
+Finally, notice that there is no ~D+D~ instruction.  So to add D to itself, copy it into A, and then add A&D and store the result into D:
+
+~A=D~
+~D=D+A~
+
+NOTE: while numeric constants cannot be assigned to the destination register directly (other than A), D=-1/0/1 are all legit, because -1, 0 & 1 are all COMP instructions, that return -1, 0, 1 from the ALU.

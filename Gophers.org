@@ -1,0 +1,445 @@
+* Allocation
+ - new() :: creates new instance, zeros it, and /returns a pointer./ 
+ - make() :: creates new instance, zeros it and /returns the thing itself./  Used for maps, slices and channels *only*:
+
+#+BEGIN_SRC go
+  p := new(chan int)   // p has type: *chan int
+  c := make(chan int)  // c has type: chan int
+#+END_SRC
+
+Also, note that slices maps & channels, are /reference types/, with implicit pointers and aliasing (think objects in Delphi, ahhh those were the days).  i.e. a slice is three words that get passed on the stack, and one of them is a reference to the underling array.
+
+So, given the following struct:
+
+#+BEGIN_SRC go
+  type SymbolTable struct {
+    variables map[string]int
+    labels    map[string]int
+  }
+
+  fred := SymbolTable{}
+  test := fred.values == nil   // TRUE
+
+  ethel := SymbolTable {
+    variables: make(map[string]int),
+    labels: make(map[string]int)}
+
+  test2 := ethel.values == nil  // FALSE
+#+END_SRC
+
+Note that there's no real need to use new.  Instead, use a literal preceded by an '&':
+
+#+BEGIN_SRC go
+  fred := &SymbolTable{}
+#+END_SRC
+
+A pointer to a struct will automatically be dereferenced:
+
+#+BEGIN_SRC go
+  type test struct {
+    name string
+  }
+
+  fred := test{ name: "Fred" }
+  ethel = &fred
+
+  fmt.Printf("No dereferencing required: %s", ethel.name) // "...: Fred"
+#+END_SRC
+
+* Godoc
+** Writing
+Any comments found immediately before the declaration of a (public) type, variable, constant, function or package, with no intervening blank lines, will extracted.
+
+By convention, make the first word the name of whatever it is that you're documenting, as it will be used as a header:
+
+#+BEGIN_SRC go
+  // Myfunc does "stuff"....
+  func MyFunc()
+#+END_SRC
+
+the above will result in a header "func MyFunc" (in that nice shade of blue that the go team seems to like so much).
+
+Comments elsewhere are ignored, with the exception of ~// BUG(name)~ 
+which will be extracted into the bugs section of the documentation.
+
+URLS - these are converted to links, no markup required.
+
+Pre-formatted text must be indented relative to the surrounding text:
+
+#+BEGIN_SRC go
+// Blah blah
+//   this will be treated a preformatted text
+// More blah blah...
+#+END_SRC
+
+Headers - use something like the following:
+
+#+BEGIN_SRC go
+  /* Blah blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble.
+
+  Some title
+
+  Blah blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble blah thing wobble */
+#+END_SRC
+
+That's pretty much it.
+** Running as a server
+godoc -http=:6060 -index -play
+
+Will extract docs from GOROOT etc as far as I can tell, as well as displaying any documentation that I apply to public /my/ types/functions etc.  This is cool.  Also note that the index can be saved locally, as it takes a few mins to generate.  If you want to search, you'll need the index.  Otherwise, just enter the full path, i.e. ~http://localhost:6060/pkg/archive/tar/~
+
+Note that example code will still be displayed without the ~-play~ flag, but will not be runable.
+
+** Querying
+If invoked with the -q option, (and -server is not specified) godoc will first try loclhost:6060, and then godoc.org.
+
+** Generation
+Godoc seems to take it straight from the source/package itself, so erm, no generation required?  Index may take a while to build though.  Need to play around with it some more, this is seriously cool and /very/ well thought out.
+
+** Example functions
+
+This is awesome!  The following code:
+
+#+BEGIN_SRC go
+  func ExampleMyFunc() {
+    fmt.Println(MyFunc(some, params))
+  }
+#+END_SRC
+
+will generate example code in the docs for MyFunc() that users can both edit and run.  Note: must start with 'Example' and take no parameters, and be part of a test.  More info [[https://blog.golang.org/examples][here]].
+
+* Unit tests
+Create in the same folder as the package code, with the same name as the file you're writing tests for, with ~_test~ appended to the end of it.  Make sure that it has the same package name.  Tests will not be included in the executable.
+
+In that file, import "testing", and create fun functions like:
+
+#+BEGIN_SRC go
+  package packageName
+
+  import "testing"
+
+  func TestAverage(t *testing.T) { // note the use of camel case!
+    // get some result...
+    if result != expected {
+      t.Error("Expected 3.141, but ", badResult)
+    }
+  }
+#+END_SRC
+
+So no assertions etc, no fluent interfaces.  Although fluent interfaces are a symptom of OO code, so yay, no OO!  Also, testing.T would make sooooooo many C# devs lose their shit.  I mustn't like this language because it would offend enterprise-level purists.....  Shouldn't I?
+
+The ~go test~ command will look for all functions starting with ~Test~ (pascal case FTW) and taking an argument of ~*testing.T~, and run them.  
+
+A note on mocking channels: they're first class citizens, and a consumer has no idea what's at the other end.  In other words, your mock IS a channel.
+
+And that, is pretty much it.
+
+* Nil
+/"Nil has no type"/
+ - Go language specification.
+
+/"Nil is a predeclared identifier representing the zero value for a pointer, channel, func, interface, map or slice type."/
+ - Go documentation
+
+So to start, this means that nil is not a keyword.  
+
+*Different 'types' of nil*
+ - pointer :: points to nothing
+ - slice :: a slice without a backing array, where both ~len~ and ~cap~ are 0
+ - channel :: a pointer that points to nothing
+ - map :: a pointer that points to nothing
+ - func :: .... pointer that points to nothing
+ - interface :: nothing (see below)
+
+Notice that with a slice, this means that a nil slice actually has three words in memory backing it, just like every other slice.  The same with channels, maps and funcs, they are all a pointer in memory (remember that all three are reference types) that have nil as their value (i.e. they don't point to anything).
+
+** Interface
+An interface is /not/ a pointer.  It has two components, a type (the concrete type) and a value (the backing implementation).  So a 'nil' interface, consists of two pointers that point to nothing.
+
+#+BEGIN_SRC go
+  // an interface has two parts:
+  // (type, value)
+
+  var s fmt.Stringer // s is a 'nil' interface (nil, nil)
+  s == nil // true
+
+  // so at this point, the interface (nil, nil) == nil
+
+  var p *Person
+  var s fmt.Stringer = p
+  s == nil //false <- this is where it gets confusing
+
+  // the above returns false, because s is now:
+  // (*Person, nil)
+  // I.e. we've told it what it's backing type is going to be,
+  // so (<some-type>, nil) != nil
+
+#+END_SRC
+
+Something to remember: 'error' is an interface.  So when returning an error, don't create a concrete error var or type, otherwise this may happen:
+
+#+BEGIN_SRC go
+  func foo() myError { // result is a nil pointer to type *myError
+    // stuff....
+    return nil
+  }
+
+  func bar() error { // result is an interface, (type, value)
+    var err = foo()
+
+    return err // this will be wrapped in an interface!
+  }
+
+  func baz() {
+    test := bar()
+    fmt.Println(test == nil) // false!
+  }
+#+END_SRC
+
+Because the original nil pointer to *myError was wrapped by the error interface, it becomes (*myError, nil), which evaluates to NON-NILL.
+
+The key take-home point here, is that there is not one 'nil'.  There isn't even one /type/ of nil.  There are several predefined /values/ for nil, which are dependant on hte type that they were defined for.
+
+** Nil as zero values
+*** Pointers to Structs
+For a nill struct, accessing a value results in a panic.  /But/, methods that have been associated with the struts type, can be called from a nil struct.  Kind of like static methods, /but if the struct isn't nil they'll work as expected with that particular instance./  This is pretty cool :-)
+
+In other words, if you're careful, you can write your functions for structs to gracefully return is someone creates a pointer to one, and calls the func while the pointer still points to nil.
+
+#+BEGIN_SRC go
+  type fred struct {
+    name string
+  }
+
+  func (f *fred) sayHi() string {
+    if f == nil {
+      return "" 
+    }
+
+    return fmt.Printf("Hi!  my name is %s", f.name)
+  }
+#+END_SRC
+
+*** Slices
+Because a nil slice is a normal slice, but without the backing array, you can append to a nil slice.  The run-time will just allocate a new backing array, the same way it would if you overran the capability of an existing one.
+
+You can rannge over a nil slice, and get its len()
+
+Also remember that the reallocation for slices is always double the previous length, so allocating n times will have log-n (I think) allocations,
+
+*** Maps
+Again, you can range over these, and get the len() without a panic.  So, provided your code just ranges over a map, no need to check it for nil.
+
+*** Channels
+Receive from a closed channel (i.e. the other end closed it) and you will keep getting the zero value of the channel's type.
+
+But if the channel is nil, then sending or receiving will block forever, and closing it will cause a panic.
+
+Unless: you're reading from the channel in a select statement, in which case (heh) the case statement will never be selected.  I'm assuming here that the code behind 'select' simply ignores channels that are nil.
+
+*** Interfaces
+nil *Person != nil interface
+
+Basically, using nil to satisfy an interface means that you get (type, nil), and combined with the idea that methods against nil structs can be run, you can use nil to signal/get a default behaviour when expecting an interface.
+
+* Error handling
+The usual implementation of the error interface is the unexported ~errorString~ struct, which has a single ~Error()~ method.  This is what gets created when you call ~errors.New()~.
+
+Another way to create an error, is via the fmt package's ~Errorf()~ method, which formats and then calls ~errors.New()~.
+
+The main take away point here. is that /any/ data type (including ints, strings etc) can be used as an error, so long as it satisfies the ~error~ interface.  Calling code can then check on the type if it wants to, getting any extra info you may have passed back.  In other words, create your own error types.
+
+
+** Panic
+Only two times when it's considered ok to do so:
+
+*When the user asks*
+This is when your package provides a method the explicitly states it might panic.  For example, ~regexp.Compile()~ returns an error if things go wrong, but ~regexp.MustCompile()~ will panic instead.
+
+*When setting up*
+i.e. your package needs to set something up like a TCP connection before it can continue.  Just be careful to make sure that it's something that cannot be worked around.  i.e. a package that writes to a file shouldn't panic if it cannot open the file, it should be up to the caller to determine how to handle that.  But a http library used in a web server app than cannot make any connections, then it might be ok, but always double check your assumptions.
+
+** Predefined errors
+#+BEGIN_SRC go
+  var ErrNoFerretFound = errors.New("No ferrets to be found.")
+  var ErrFerretIsSad = errors.New("Ferret looks sad.")
+
+  //...
+
+  if err == packageName.ErrFerretnotDound {
+    //...
+  }
+#+END_SRC
+
+This is just declaring errors up front (not specific error types, they're all Error{}, but specific error /values/) so calling code can do fine tuned error handling if required.
+
+*This doesn't scale however, use custom error types when you need lots of error values.
+** Custom error types
+HTTP errors are a good example of when to use this:
+
+#+BEGIN_SRC go
+  // custom error type
+  type HttpError struct {
+    Code int
+    Message string
+  }
+
+  // make sure it satisfies the Error{} interface
+  func (err HttpError) string Error() {
+    return fmt.Printf("HTTP %d : %s", err.Code, err.Message)
+  } 
+#+END_SRC
+
+So it works as a standard error (because it satisfies the Error{} interface), but also provides detailed info:
+
+#+BEGIN_SRC go
+  err := makeRequest()
+
+  if err != nil {
+    if err.(HttpError).Code == 404 {
+      // not found....
+    } else {
+      // other stuff...
+    } 
+  }
+#+END_SRC
+** Error wrapper
+Wrapper around lots-o-funcs:
+
+#+BEGIN_SRC go
+  func wrap(funcs ...func() error) error {
+    for f := range(funcs) {
+      if f, err := f(); err != nil {
+        return err
+      }
+    }
+      
+    return nil
+  }
+
+  // ...
+
+  err := wrap(
+    func() error { return fooThatReturnsError(10)},
+    foo(),
+    bar(),
+    // etc
+  )
+#+END_SRC
+
+I like this if only because it uses first class functions, something makes me all warm and tingly.  The problem however, is that you'll end up with a lot of scaffold code to wrap everything in a ~func~ if what you're calling actually takes parameters.
+
+** And now a word from Rob
+Taken from [[https://blog.golang.org/errors-are-values][this blog post.]]
+
+But first, one thing that's become apparent, is that because go errors are just regular values (so long as they satisfy the error interface), you're free to hand-roll your error handling however you see fit.  Use whatever suits your project the best.  There IS no idiomatic way to handle errors in Go.
+
+For instance, the ~bufio.Scanner.Scan()~ method doesn't return an error, just a bool to indicate if it's finished (or an error happened).  but it also has an ~Err()~ method, and the Go convention is that anything called Err should be called after you've finished working with the whatever (scanner, in this case), and see if it returns an error or nil:
+
+#+BEGIN_SRC go
+  for scanner.Scan() {
+    // do something with scanner.NextToken()
+    // no checking for errors
+    // Scan() returns false when it's done, or if something goes wrong.
+  }
+
+  if scanner.Er() != nil {
+    return scanner.Er()
+  }
+
+  // otherwise continue...
+#+END_SRC
+
+Again, this is not 'idiomatic', it's just something that you can do when errors are values.
+
+The next example involves writing a simple wrapper struct for an io.Writer.  Instead of creating an io.Writer and checking the result of err each time, write a single method that passes through to the writer, and saves the error result:
+
+#+BEGIN_SRC go
+  type ioWrapper struct {
+    w io.Writer
+    err error
+  }
+
+  func (wr *ioWrapper) writeStuff(stuff []byte) {
+    if wr.err != nil {
+      return
+    }
+
+    _, err := wr.w.Write(stuff)
+  }
+#+END_SRC
+
+Which means that you can call it like so:
+
+#+BEGIN_SRC go
+  wrapper := ioWrapper{ w: someWriter}
+  wrapper.writeStuff("Wheeeeeeeeeeeeeeeeeeeeeeeeeeeee!")
+  // no error checking!
+  wrapper.writeStuff("Woooooooooooooooooooooooooo!")
+  // still no error checking!
+  if wrapper.err != nil {
+    // write angry letter
+  }
+#+END_SRC
+
+This is a great general wrapping pattern, because it can also log bytes, time operations etc.  It's trivial to do locally, so no need to import a third part library like I would in the C# world.
+
+Summary - by making errors values, it's up to the developer to figure out the best way of handling errors for the task at hand.  These examples take very little code, and can be tweaked for specified purposes.  Con: no standard library to import and just follow how that does error handling.  Pro: no standard library that you have to adhere to, and write painful helper code for when it doesn't /quite/ fit.
+* Channels
+ * The function that creates a channel should be the one to close it.  If that function then tries to send on said closed channel, you get a panic because, "you're doing it wrong" :-)
+ * "Senders close; receivers check for closed."
+ * Sends and receives on nil channels block, /but/, select never selects a blocking case.  So use a select statement if you need to handle the possibility that a channel will be nil or closed at some point.
+
+* Empty interfaces
+I really need to re-read up on this and take some proper notes.
+
+#+BEGIN_SRC go
+  // 'Empty interface'
+  func moose(any interface{}) string {
+    if s, ok := any.(SomeStringInterface); ok {
+      return s.String()
+    }
+
+    switch any.(type) {
+    case int:
+      //stuff
+    case int64:
+      // who knows?
+    }
+  }
+#+END_SRC
+* Benchmarking /Profiling
+** Benchmarking
+Go testig has built-in bench marking.  Much like tests, just calling something ~Benchmarkxxx(b *testing.B)~ is enough, and run by calling ~go test -bench~.
+
+#+BEGIN_SRC go
+  func BenchmarkHello(b *testing.B) {
+      for i := 0; i < b.N; i++ {
+          fmt.Sprintf("hello")
+      }
+  }
+#+END_SRC
+
+** Profiling
+Go only supports profiling by default in tests:
+
+#+BEGIN_SRC shell
+
+go test -cpuprofile cpu.prof -memprofile mem.prof .
+go tool pprof cpu.prof
+
+#+END_SRC
+
+Otherwise you'll need to add it to your main function:
+
+#+BEGIN_SRC go
+  import "runtume/pprof"
+
+  main(){
+          pprof.StartCPUProfile("./cpu.profile")
+          defer ppro.StopCPUProfile()
+          //....
+  }
+#+END_SRC
+
+Then to view the profile, use ~go tool pprof ./components.test ./cpu.out~

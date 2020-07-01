@@ -1,0 +1,152 @@
+* Async "stuf"
+Main thing to remember is that this is /not/ a way to run things in parallel.
+
+#+BEGIN_SRC java
+  void AsyncTest()
+  {
+      WithAwaitAtCallAsync().Wait();
+  }
+
+  async Task WithAwaitAtCallAsync()
+  {
+      await LongOperation();
+
+      OtherStuff();
+  }
+#+END_SRC
+
+In the code above, when the ~await~ is hit, Long operation will be called, and control returned to AsyncTest().  Once the operation has completed, control returns to the async method, and OtherStuff() is finally called.
+
+Think of await as a 'code marker', that indicates where to return control to once the awaited call has finished.
+
+The result of an async method can be assigned to a variable, so more tasks can be kicked off, before awaiting on that task:
+
+#+BEGIN_SRC java
+  void main()
+  {
+      Console.WriteLine("Starting...");
+      var task1 = Method1();
+      var task2 = Method2();
+
+      Console.WriteLine("Waiting on task1...");
+      var result1 = await task1;
+
+      Console.WriteLine("Calling FetchStuff()");
+      var someOtherThing = FetchStuff();
+
+      Console.WriteLine("Waiting on task2...")
+      var result2 = await task2;
+
+      DoSomethingWith(result1, someOtherThing, result2)
+  }
+
+  async Task<int> Method1()
+  {
+      Console.WriteLine("Start of method 1");
+
+      var result = await LongRunningThingie();
+
+      Console.WiteLine("End of method 1");
+
+      return result;
+  }
+
+  async   Task<int> Method1()
+  {
+      // much the same....
+  }
+#+END_SRC
+
+This will result in something like the following:
+
+#+BEGIN_SRC
+Starting...
+Start of method 1
+Start of method 2
+Waiting on task1...
+End of method 1 (probably appears here....)
+CallingFetchStuff()
+Waiting on task2
+#+END_SRC
+
+However, where you see ~End of method 1~ or ~End of method 2~ will depend on how long they take to run.  The only guarantee here, is that while Both Task1 and Task2 were fired off at that same(ish) time, the main method will wait for task1 to complete before calling FetchStuff().  Task2 may even have completed /before/ task1, but it's result wont be known until the second await.
+
+Remember: await is a code marker.  It marks the point where a) we /have/ to wait because we need this result /now/, and b) the point where controlled can be returned to the calling method until we've finished awaiting this other task.
+
+Hm, just found out that it's NOT a single-threaded thingie.....  When control returns, it's possible for it to be on a random thread from the pool, so that Eric Lipert article was wrong?!?  He wrote the bloody thing.....
+
+Note: if the result of multiple async tasks is required for a single operation, the use ~Task.WhenAll(Task[])~, otherwise they will be waited on in sequence:
+
+#+BEGIN_SRC java
+  var res1 = await Thing1(); // takes 2 seconds
+  var res2 = await Thing2(); // takes 6 seconds
+  var res3 = await Thing2(); // takes 2 seconds
+
+  // the above will take around 10(ish) seconds to complete.
+
+  var task1 = Thing1();
+  var task2 = Thing2();
+  var task3 = Thing3();
+
+  Task.WhenAll(tas1, task2, task3);  // will take 6(ish) seconds
+
+  // note that you can also use:
+
+  var result = (await task1.Result) * (await task2.Result);
+
+  // although it's a bit less obvious to someone new to this.
+#+END_SRC
+
+*Exceptions*
+
+Note that while the following is fine, as the exception will be wrapped in the task:
+
+#+BEGIN_SRC java
+  async Task Thing()
+  {
+      throw new Exception("Oh noes!");
+  }
+#+END_SRC
+
+if the method returns a task but isn't marked as async, you should wrap any exception in a task, and return that:
+
+#+BEGIN_SRC java
+  Task Thing()
+  {
+      try
+          {
+              // stuff...
+          }
+      catch(Exception ex)
+          {
+              return Task.FromException(ex);
+          }
+  }
+#+END_SRC
+
+ToDo - go through examples in tips and trcks (just bookmarked) when get home, and extend the examples on github.
+
+* IDisposable
+The only thing to remember is that while a finalizer will always be called, .Dispose() is totally dependant on the code using it.  So, finalizer should /just/ call dispose, and dispose should tell the GC that Finalize isn't needed - i.e. to /all/ resource cleanup in the dispose method.  Always keep finalization methods as small as possible.
+
+Yes, there will be times when you need code in Finalize that doesn't belong in dispose, but should be rare.
+
+The idea is that Dispose can be called deterministicly, but with Finalize, its up to the GC, i.e. not in our hands.
+* Async / Await
+/"Single-threaded cooperative multitasking"./  Mostly - the framework will attempt to keep your code on the same thread as much as possible.  Sometimes, when a continuation is erm, continued, it may be on a different thread.
+
+** Await
+Basically translates as "sign up the rest of this method as a continuation, and return control to the caller.  The Task is then responsible for calling the continuation when it's finally done its thing.
+
+** Task
+This represents an async task.  It may be running on another core, it may be running on the same core on a different thread, it may be run on the same thread in a few moments time, but the point is that it abstracts away the idea of doing work elsewhere.  i.e. Here's a task to complete, how you complete it is up to you, in the meantime the caller can get something else done.
+
+Remember that async doesn't imply parallel, but parallel /requires/ async.
+** Exceptions
+Interesting - exceptions are trapped and stored with the task.  When the continuation is called, the task is checked, and the exception /re-thrown/ in the context of the original code.  But, that's an implementation feature, so don't spend too much brain power on it.  However, again, no idea what thread the exception could be raised on.
+
+** ContinueWith
+Basically if you're using await/async, it's unlikely that you'll ever need to use this.
+Just be aware that:
+ - Like usual, there is /no/ guarantee that the continuation will be run on the same thread.  You can give a hint that you'd like to (~TaskContinuationOptions.ExecuteSynchronously~), but it's just that, a hint, not a guarantee.
+ - If the antecedent fails, the continuation /must/ check Task.Failed (or whatever it's called), or specifically call the continuation with ~TaskContinuationOptions.OnlyOnRanToCompletion~, if it's an all or nothing continuation, wdependant on the parent succeeding.

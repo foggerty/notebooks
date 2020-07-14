@@ -4,7 +4,7 @@ Most of these notes are taken from /Getting Clojure, by Russ Olsen./  These are 
 
 First, note that the ~doc~ function is in the ~clojure.repl~ name space.
 #+begin_src clojure
-(require 'clojure.repl)
+(require ['clojure.repl :refer [doc]])
 (doc doc)
 #+end_src
 
@@ -173,10 +173,14 @@ To use an existing namespace:
   (:require [bar.baz :as baz] ))
 
 ;; If using a stand-alone require:
-(require '[bar.baz : as baz])
-#+end_src
+(require '[bar.baz :as baz])
 
-Note: don't bother with the ~:refer~ keyword, as it negates the point of using namespaces.
+;; To only import specific symbols, use :refer and a vector:
+(require '[clojure.repl :refer [doc]])
+
+;; If you want to import all symbols, use :refer :all
+(require '[clojure.repl :refer :all])
+#+end_src
 
 Just remember that a single ~(require foo)~ statement is quite different from ~(ns foo (:require...))~ in terms of quoting etc.
 

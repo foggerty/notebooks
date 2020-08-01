@@ -246,6 +246,7 @@ Finally, to determine if two things are the same object in memory, use the ~iden
 #+end_src
 
 TODO: look into why the same symbol defined in the same file gets a separate var?!?
+* Type hints
 * TODO Error Handling
 Basically, it's done with exceptions.  Fark.  One day I'll learn about Scheme's error handling magic...   One day.
 * Multimethods
@@ -281,3 +282,83 @@ Note that you can define an implementation using the ~:default~ keyword, and tha
 
 Multimethods can be defined in another file, so useful as an extension point for libraries.
 * TODO Pre and Post Conditions
+* Threading macros
+** ->
+This takes an intial value and inserts it as the second item in the
+first form.  It then takes the result, and inserts it as the second
+item in the second form, and repeats:
+
+#+BEGIN_SRC clojure
+(-> [2 5 4 1 3 6]
+    (reverse)                           ; [6 3 1 4 5 2]
+    (rest)                              ; [3 1 4 5 2]
+    (sort)                              ; [1 2 3 4 5]
+    (last))                             ; 5
+#+END_SRC
+
+Without it, would have to write the above in the usual inside-out
+fashion:
+
+#+BEGIN_SRC clojure
+(last
+ (sort
+  (rest
+   (reverse [2 5 4 1 3 6]))))           ; 5
+#+END_SRC
+
+Remember that is inserts as the /second/ item, so the following works
+too:
+
+#+BEGIN_SRC clojure
+(-> 5
+    (+ 2 2)
+    (* 2 3))                            ; 54
+
+(macroexpand-all '(-> 5 (+ 2 2) (* 2 3))) ; (* (+ 5 2 2) 2 3)
+#+END_SRC
+
+Finally, for readability, braces can be omitted for functions that
+take a single argument:
+
+#+BEGIN_SRC clojure
+(-> [5 3 1 4 2]
+    sort
+    reverse
+    first)                              ; 5
+#+END_SRC
+
+** ->>
+Whereas ~->~ inserts the value/form 'first' (i.e. as the second item in
+a form, it's the /first argument/), ~->>~ places the value/form at the end
+of the form.  Using a sum-of-squares example (because there are not
+enough of those used in functional programming tutorials) you get
+something like the following:
+
+#+BEGIN_SRC clojure
+(->> (range 10)
+     (filter odd?)
+     (map #(* % %))
+     (reduce +))                        ; 165
+#+END_SRC
+
+#+RESULTS:
+
+** as->
+For mixed cases, use ~as->~.  The first argument is the value to be threaded, the second is a place-holder token, representing the initial value and subsequent forms:
+
+#+BEGIN_SRC clojure
+(as-> [:foo :bar] v
+  (map name v)
+  (first v)
+  (.substring v 1))                     ; "oo"
+#+END_SRC
+
+I claim no responsibility for that heavily contrived example.
+
+** Usage
+As a rule, most of the core sequence functions like ~map~, ~reduce~, ~into~
+etc, take a sequence as their final argument.  So for them, use ~->>~.
+Core functions that operate on data structures, usually take it as
+their first argument, so use ~->~
+
+For everything else, as-> will probably get the job done.

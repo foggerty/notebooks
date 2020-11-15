@@ -4,7 +4,7 @@ Most of these notes are taken from /Getting Clojure, by Russ Olsen./  These are 
 
 First, note that the ~doc~ function is in the ~clojure.repl~ name space.
 #+begin_src clojure
-(require ['clojure.repl :refer [doc]])
+(require '[clojure.repl :refer [doc]])
 (doc doc)
 #+end_src
 

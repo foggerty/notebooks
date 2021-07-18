@@ -1,0 +1,44 @@
+* UDEV
+Note: I'm skipping a few things here, just focusing on what I'm most likely to use.
+
+Used to trigger events for devices under the ~/dev~ directory.
+
+Trigger rules are in ~/lib/udev/rules.d~ (default) and ~/etc/udev/rules.d~ (custom) - ~etc~ takes precedence.
+
+Rules are processed in lexical order, and if a rule has the same name in ~etc~, it will overwrite the default rule.
+
+Each line that's not a comments, are made up of key/value pairs, with 'match' keys and 'assignment' keys:
+ - ~==~ :: Equality.
+ - ~!=~ :: Not equal.
+ - = :: Assigns a value to a key.
+ - ~+=~ :: Add value to key.
+ - := :: Assigns a final value to a key, disallowing any further changes by later rules.
+
+** Keys
+ * ACTION :: Matches the name of the event action (add, change etc).
+ * KERNEL :: Matches the name of the event device.
+ * DEVPATH :: Matches the path to the event (under ~/dev~).
+ * SUBSYSTEM :: Matches the entire subsystem the device belongs to.
+ * DRIVER :: Only set for devices which are bound to a driver when the event is triggered.
+ * ENV{key} :: Matches against a device property value.
+ * TAG :: Matches against a device tag.
+ * PROGRAM :: Matches against the result of a program.
+ * RESULT :: Matches against the returned string of ~PROGRAM~
+
+The standard globs can be used, ~*~ (zero of more) ~?~ (any single character), ~[]~ (any single char listed in the brackets), ~|~ alternative
+
+** Assignment
+The following keys can be assigned to:
+ * NAME
+ * SYMLINK
+ * OWNER, GROUP, MODE
+ * OPTIONS
+ * ATTR{key}
+ * ENV{key}
+ * TAG
+ * RUN
+ * LABEL :: Sets a label for use with a ~GOTO~.
+ * GOTO :: Jumps to the next ~LABEL~ with a matching name.
+
+** String substitution
+~NAME, SYMLINK, PROGRAM, OWNER, GROUP, MODE & RUN~ can all use string substitution.  See the ~udev~ man pages for available substitutions.

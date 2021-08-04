@@ -1,0 +1,138 @@
+* Language
+Each file is a class
+
+#+begin_src python
+class_name Fred
+# or:
+extends Fred
+#+end_src
+
+Member variables are declared with var, and dictionary literals are supported:
+
+#+begin_src python
+var some_int = 10
+var str = "Hello"
+var dict = {"key": "value", 2: 3}
+
+# note: can use Lua style dictionaries, so no need to quote keys:
+var dict2 = {key = value, dog = "Fred"}
+# however, cannot use numbers as keys.
+#+end_src
+
+
+GDScript is a white-space indentation thingie language, so functions and loops etc are defined like so:
+
+#+begin_src python
+func some_useless_fuinction(param1, param2)
+    if param1 == param2
+        return 1
+    elif param1 > 100
+        return 2
+    else:
+        return 234
+
+    for i in range(10)
+        print(i)
+
+    while param1 < param2
+        # do amazing things with other thiggs
+
+    return 0
+#+end_src
+
+** Classes
+Each file represents a class.  Define a class with the ~class~ keyword, followed by any member variables.
+
+#+begin_src python
+class Fred
+    var a = 10
+
+# define constructirs like so:
+func _init()
+    # setupo
+
+func DoStuff()
+    # stuff
+
+# if a subclass wants to override a method, can call the base one like so:
+func DoStuff() # in child class
+    .DoStuff() # do parent's stuff
+    # do more stuff
+
+# If you want your node derived class to have an icon in the editor:
+extands Node
+class_name MyThingie, "res://assets/icons/thingie.png"
+
+# Even if a file doesn't specify a class name, you can still descend from it, like so:
+extends "some_other_file.gd"
+
+# to pass paramaters to a parent constructor, use:
+func _init(args).(parent_args)
+
+# Settets/getters
+var some_var setget set_function, get_function
+#+end_src
+
+** Basic types
+Unless you're using ~PoolIntArray~ or one of its variants, arrays can contain different types.
+
+#+begin_src python
+# constants:
+const fred = "Fred"
+const life = 42
+
+# Enums (don't need to be named):
+enum {FIRST, SECOND, THIRD}
+enum Days {MON, TUE, WED}
+
+# Vector types, 2D and 3D:
+var v2d = Vector(1, 2)
+var v3d = Vector(1, 2, 3)
+
+# Can have multo-line string with tripple quotes:
+"""multi-line
+string"""
+
+#"Node/Label" # path to a node
+@NodePath # shorthand for get_node("NodePath")
+
+# access the last element of an array with a negative index:
+var f = arr[-1] # equivilent to arr[arr.size() - 1]
+
+# Variable declaration:
+var a = 2  # dynamic var, can have any type assigned to it
+var b := 2 # can only have ints asgigned to it
+var c: int # can only have ints assigned to it
+#+end_src
+
+** yield/resume
+#+begin_src python
+# Coroutines, basically.  Yield will return to caller, saving current state of function saved.  Caller can then call .resume() on the returned object to return back to it.
+
+func yielding_func()
+    print("Hello")
+    print(yield())
+    print("World")
+
+func calling_func()
+    var f = yielding_func()
+    # do stuff
+    f.resume("Bastard")  # can pass paramaters to resume, will be result of yield() func
+
+    # prints "Hello Bastard World"
+#+end_src
+
+There's a lot more here to do with signals that I'm too tired to go through right now :-)
+
+
+* Nodes
+"My god, it's full of nodes....."
+
+
+
+* Signals
+
+* Reference counting / memory management
+ - ~Object~ :: must use manual memory management.
+ - ~Reference~ :: uses reference counting to nuke self when no more references to it exist.
+ - ~Resource~ :: Can be viewed in the inspector, and know how to serialise/deserialise themselves to Godot resource files.

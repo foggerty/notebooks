@@ -125,14 +125,58 @@ func calling_func()
 There's a lot more here to do with signals that I'm too tired to go through right now :-)
 
 
-* Nodes
+* Nodes (and scenes)
 "My god, it's full of nodes....."
 
+Nodes are the building blocks of Godot, and every node can (optionally) receive a callback per-frame.  Nodes can have other nodes as children nodes.
 
+Nodes are collected together in a scene's scene tree.
+
+A scene has a single root node (which can then contain other nodes), can be saved/loaded to disk, and can be instanced as needed.  One scene must be the main scene.  Note that scenes are also nodes, as they can be made the children of nodes.
+
+A Room scene would hold a table scene, which would hold a vase, plate, mug etc.  The vase could then hold flowers.  i.e. a hierarchy of objects/containers.
+
+Nodes can be added to as many groups as you want (~add_to_group, is_in_group, remove_from_group~).  Groups are just used for organisation, if you (say) need to iterate through all nodes in the 'enemies' group.  You can then send a signal to all nodes in a group with ~get_tree().call_group("enemies", "start_hunting_player")~.  You can get all nodes in a group with ~get_tree().get_nodes_in_group("enemies")~
+
+~s = NodeName.new()~ / ~s.free()~  <= create and delete in code.  Note that ~s.queue_free()~ is preferred, as it a) adds the freeing to a queue that b) avoids a crash in the node in question is receiving a signal or calling a function.
+
+* Notifications
+ - NOTIFICATION_ENTER_TREE (_enter_tree) :: When added to a scene tree.  Called in order of parent->child.
+ - NOTIFICATION_READY (_ready) :: When all nodes have been added to tree.  Called in order of child-parent.
+ - _process :: called each frame.
+ - _physics_process :: usually set at 60 times a second.
+ - _input :: called for input events.  /Warning/ - this is called for each nodes that implements it.  Prefer ~_unhandled_input~ instead, so receives events that were not handled by anything else.
 
 * Signals
+
 
 * Reference counting / memory management
  - ~Object~ :: must use manual memory management.
  - ~Reference~ :: uses reference counting to nuke self when no more references to it exist.
  - ~Resource~ :: Can be viewed in the inspector, and know how to serialise/deserialise themselves to Godot resource files.
+
+* GDScript
+Each script 'extends' the class that it's attached to, i.e. a ~Label~ instance is the 'base' class, and the script extends it by overriding virtual methods.  That's how I think of it anyway.  Actual implementation may vary.
+
+All virtual methods start with _
+
+** get_node()
+By default, get node uses the current node as the base node.  So ~get_node("Button")~ assumes that there is another node called "Button" that's a child of the node running the script.
+
+To reference a child of a child, use ~get_node("Panel/Button")~.
+
+* Best practices
+Each scene should be able to be instanced without knowing much, if anything about the environment in which it's being created.  Use GDScript's horrifying string-based dependency injection if nodes need to know about higher-level nodes.  Basically, think of it with an OO mindset, so child nodes (classes) shouldn't depend on state in the parent nodes (or even know about it).  Send messages back up the stack/tree and have the parent nodes react.  I think.  Goes against "ask, don't tell" but then most of Godot is build around the observer pattern so whatever.
+
+Where state /does/ need to be shared (i.e. scores, player info) then [[https://docs.godotengine.org/en/stable/getting_started/step_by_step/singletons_autoload.html#doc-singletons-autoload][use singletons and autoload.]]
+
+Main Node
+  GUI Node
+  2D Node
+    Scene 1 node / Scene 2 node
+
+Note the scene nodes can be swapped in/out as required.
+
+If a child node, for whatever reason, shouldn't inherit the transforms of its parent, insert a ~Node~ between them.  This base class doesn't pass down transformations.
+
+Scenes vs scripts - scripts give behaviour to scenes, scenes provide an API for scripts.  While scripts can generate scenes (i.e. instantiate a bunch of nodes and set relationships) this is not recommended for large scenes, owing to interpreter speed.

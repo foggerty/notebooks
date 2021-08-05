@@ -140,6 +140,20 @@ Nodes can be added to as many groups as you want (~add_to_group, is_in_group, re
 
 ~s = NodeName.new()~ / ~s.free()~  <= create and delete in code.  Note that ~s.queue_free()~ is preferred, as it a) adds the freeing to a queue that b) avoids a crash in the node in question is receiving a signal or calling a function.
 
+NOTE: while scenes are nodes under the hood, you cannot just instance one like you would a node.  They need to be loaded from file first:
+
+#+begin_src python
+var scene = load("res://somescene.tscn")
+
+# or, preload in the _ready() function, as this will be run at parse time:
+var scene = preload("res://somescene.tscn")
+
+# scenes are loaded in as a PackaedScene, and need to be unpacked
+# before the tree of nodes can be used:
+var sceneNode = scene.instance()
+add_child(sceneNode)
+#+end_src
+
 * Notifications
  - NOTIFICATION_ENTER_TREE (_enter_tree) :: When added to a scene tree.  Called in order of parent->child.
  - NOTIFICATION_READY (_ready) :: When all nodes have been added to tree.  Called in order of child-parent.
@@ -148,7 +162,34 @@ Nodes can be added to as many groups as you want (~add_to_group, is_in_group, re
  - _input :: called for input events.  /Warning/ - this is called for each nodes that implements it.  Prefer ~_unhandled_input~ instead, so receives events that were not handled by anything else.
 
 * Signals
+I.e. the observer/subscriber pattern.
 
+*NOTE:* when connecting signals via the node editor, you need to first make sure that a node has a script attached to it.
+
+Connect up signals like so:
+
+#+begin_src python
+func _ready():
+	$Timer.connect("timeout", self, "_on_Timer_timeout")
+
+func _on_Timer_timeout():
+	$Panel/Sprite.visible = !$Panel/Sprite.visible
+#+end_src
+
+Note that ~"timeout"~ is a signal that the timer /emits/.  By connecting to itself, the node above is subscribing to that particular signal.
+
+Custom signals can be added to a node:
+
+#+begin_src python
+extends Node
+
+signal my_signal(value, thing, wotsit)
+
+# signal others with emit_signal:
+emit_signal("my_signal", thing, wotsit)
+#+end_src
+
+This signal will then appear in the inspector, and other nodes can subscribe to it.
 
 * Reference counting / memory management
  - ~Object~ :: must use manual memory management.
@@ -164,6 +205,8 @@ All virtual methods start with _
 By default, get node uses the current node as the base node.  So ~get_node("Button")~ assumes that there is another node called "Button" that's a child of the node running the script.
 
 To reference a child of a child, use ~get_node("Panel/Button")~.
+
+Alternately (and this will enable code-complete) use the ~$~ shorthand, e.g. ~$Panel/Sprite.visible = false~.
 
 * Best practices
 Each scene should be able to be instanced without knowing much, if anything about the environment in which it's being created.  Use GDScript's horrifying string-based dependency injection if nodes need to know about higher-level nodes.  Basically, think of it with an OO mindset, so child nodes (classes) shouldn't depend on state in the parent nodes (or even know about it).  Send messages back up the stack/tree and have the parent nodes react.  I think.  Goes against "ask, don't tell" but then most of Godot is build around the observer pattern so whatever.

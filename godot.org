@@ -124,7 +124,6 @@ func calling_func()
 
 There's a lot more here to do with signals that I'm too tired to go through right now :-)
 
-
 * Nodes (and scenes)
 "My god, it's full of nodes....."
 
@@ -164,7 +163,7 @@ add_child(sceneNode)
 * Signals
 I.e. the observer/subscriber pattern.
 
-*NOTE:* when connecting signals via the node editor, you need to first make sure that a node has a script attached to it.
+*NOTE:* when connecting signals via the node editor, you need to first make sure that the target node has a script attached to it.
 
 Connect up signals like so:
 

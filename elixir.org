@@ -1,0 +1,83 @@
+* Conventions
+** Files
+~.exs~ for scripts (i.e. to run at the command line with `elixir script_name.exs`).
+~.ex~ for files to be compiled into a bigger thing.
+** Naming
+ - Module :: Capitalise.
+ - functions :: snake_case
+ - Variables ::
+* Types
+** Value
+ - Integers :: Bignums, yay!
+   Can be written with literals like so: ~123~ ~0xa344~ ~0o176~ ~0b1010101~.
+
+ - Ranges :: x..y, where x & y are integers.
+ - Atoms :: i.e. keys, anything starting with a ':', so the usual Lisp rules apply.
+ - Regular expressions :: ~r{regexp} or ~r{regexp}options, where options is one or more letters like ~i~ to mean case-insensitive.
+ - Floating point :: Uses IEEE 754, and can be written like so :~314150.0e-5~
+** System types
+ - PID (process ID) :: Local or remote process IDs.  Get the current with the ~self~ keyword.  Ports are references to external (to the application) resources.
+ - References :: Globally unique references, made with the ~make_ref~ function.
+** Collection types
+- Tuples :: Ordered collection of values: {1, 23, 4, a} (Close to an array).
+- Lists :: [1, 23, 4, a].  Note that these are linked lists, and an empty list will contain two references, head and tail.
+  There are some basic operations that can be performed on lists:
+  ~[1, 2, 3] ++ [4, 5, 6]~ (concatenate)
+  ~[1, 2, 3, 4] -- [2, 4]~ (difference)
+  ~1 in [1, 2, 3]~ (membership)
+
+  Lists can be used to create a 'keyword' list:
+  ~[a: 1, b: 2]  => [ {a:, 1}, {b:, 2}]~
+
+  Also, if a keyword list is the last argument to a function, then all brackets/braces can be removed:
+  ~func [{:a, 1, {:b, 2}]~
+  can be more clearly written like so:
+  ~func :a 1, b:2~
+- Maps :: These can have mixed types for keys/values.
+
+  Literal: ~%{key => value, key2, value2}~
+
+  Access elements like so: ~myMap[x]~.  ~nil~ will be returned if a key is not found.
+- Structs ::
+- Binaries :: Will come back to these, but they allow for binary literals in code, and packing can even be specified.  This.  Is.  Awesome.  They're also how UTF-8 is handled internally.
+** Functions
+~sum = fn (a, b) -> a + b end~
+
+The above will create an anonymous function, meaning it needs to be called like so: ~fn.(1, 2)~ (notice the period - a named function doesn't need that.)  To be clear, the above is an anonymous function, that is /bound/ to the identity ~sum~.  'Named functions' must be declared in a module.
+
+Pattern matching is automatic with function parameters, so the following will work: ~sum.( {1, 2} )
+
+You can even create function with the ~&~ operator and strings or regular expressions:
+~fred = &"Moose #{&1}"
+fred.("Wobble") -> "Moose Wobble"~
+*** Pipe operator |>
+Same as the threading macro in Clojure:
+~filing = DB.find_customers
+            |> get_orders
+            |> add_sales_tax(2022)
+            |> file~
+This will take whatever is on the left of ~|>~ and insert it as the first parameter of the next function.  The result is then inserted as the first parameter of the next function and repeat.
+
+** Strings
+ - interpolation :: same as ruby: ~#{foo}~
+** Lists
+Note that lists are terminated with an empty list, so the following is valid:
+~def len([]), do: 0
+def len([head | tail]), do: 1 + len(tail)
+** Maps
+* Truthyness
+~true, false, nil~ - ~nil~ is treated as for boolean operations.  Fun fact - each is an alias for an atom, ~:true, :false, :nil~.
+Anything other than ~false~ or ~nil~ is treated as ~true~ - i.e. "truthy".
+* Operators / equality
+~===~ - strict equality.
+~!==~ - strict inequality.
+~==~  - value equality, the usual.
+* Random coding "stuff"
+~Use ~with~ instead of 'let':
+~with {ok, fred} = getFred(),
+      wobble = getWobble()
+ do #stuff...
+ end~
+* Modules
+Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
+Module names are converted to atoms under the hood.

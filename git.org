@@ -1,0 +1,6 @@
+* TODO Fixing dumb shit
+Lookup how to put the text command below into a bale thinigie.
+
+~git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"~
+
+Run the above so that fetch etc will recognise the existence of other branches on ~origin~.

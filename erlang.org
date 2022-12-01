@@ -1,0 +1,36 @@
+* Erlang for the Greater Good
+** Basics
+*** Number etc.
+~/~ will always result in a floating point number.
+~div~ & ~rem~ are used for integer division.
+*** Atoms
+Global, and always start with a lower-case letter (remember that variable have to start with a capital letter).
+Atoms can be quoted (and so start with a capital, if you hate your co-workers) with a single quote.
+*** Tuples
+~{enclosed_in_braces, and_contain, atoms_and_numbers, 12.34}~
+Note that the convention is that all tuples start with an atom describing what the tuple is for, e.g.: ~{point, 10, 15}~
+
+To extract a value from a tuple, use pattern matching like so:
+~Point = {point, 10, 45}.~
+~{point, X, Y} = Point.~
+After this, X will be 10 and Y will be 45.  By using the convention above, and pattern matching, you end up with a superior way to build up a compound/complex data structure.  You're basically building the structure you want to query, with unbound variables where you want to extract variables.
+*** Lists
+Enclosed in square brackets, basically they're cons cells.
+Use the ~|~ operator to split a list into head/tail:
+~L = [1, 2, 3].~
+~[A|B] = L.~
+~# A is now 1, B is [2, 3].~
+Note, no spaces around the ~|~ character.
+*** Strings
+Internally either a list of ints, where each int represents a Unicode codepoint, or a binary (explained below).
+Use double quotes for string literals.
+WARNING: a list of ints will be printed as a string if all of the values in the list represent printable (Latin1) characters.
+** Modules and Functions
+Note that any error message telling you that "cannot load a sticky module" is (unhelpfully) trying to tell you that you've given your module the same name as an internal one.
+** Punctuation
+ - ~,~ :: Separate arguments, data constructors and patterns.
+ - ~;~ :: Separate clauses - function definitions, if statements, try...catch & receive.  Note that the last clause doesn't required one.
+ - ~.~ :: Separate entire functions and expressions in the shell and expressions in modules.
+
+To paraphrase Joe Armstrong, full stops separate sentences, semicolons separate clauses, and comas subordinate clauses.
+** Pattern matching

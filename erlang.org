@@ -27,6 +27,8 @@ Use double quotes for string literals.
 WARNING: a list of ints will be printed as a string if all of the values in the list represent printable (Latin1) characters.
 ** Modules and Functions
 Note that any error message telling you that "cannot load a sticky module" is (unhelpfully) trying to tell you that you've given your module the same name as an internal one.
+
+
 ** Punctuation
  - ~,~ :: Separate arguments, data constructors and patterns.
  - ~;~ :: Separate clauses - function definitions, if statements, try...catch & receive.  Note that the last clause doesn't required one.

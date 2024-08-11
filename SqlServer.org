@@ -2,8 +2,8 @@
 ** Types of lock
  - Exclusive (X) :: Locks a row or page for a given transaction, other transactions have to wait their turn.  Used when updating data (DML statements).  Cannot be applied when a shared lock is active.
  - Shared (S) :: Allows other transactions to read the data, only the initiating transaction can update the data.  Disallows DDL statements.
- - Update (U) :: If there are no existing shared locks, acts the same way as an exclusive lock.  If shared locks are active, joins as a shared lock, turning into an exclusive lock when it's the last remaining lock.  An update lock can be applied to a shared lock, but a shared lock cannot be applied to an update lock.
- - Intent (I) :: Basically flags indicating intent to lock, without actually doing so.  Allows the engine do determine if an incoming transaction would invalidate the intended lock.  Essentially they provide opportunities for optimisations, as the engine can examine incoming lock requests at the table level, rather than examining every individual row lock before deciding that it's ok to apply an exclusive lock.
+ - Update (U) :: If there are no existing shared locks, acts the same way as an exclusive lock if data is to be modified.  If shared locks are active, joins as a shared lock, turning into an exclusive lock when it's the last remaining lock.  An update lock can be applied to a shared lock, but a shared lock cannot be applied to an update lock.  Als, only one update lock can be applied to a resource at once.
+ - Intent (I) :: Basically flags indicating intent to lock, without actually doing so.  Allows the engine do determine if an incoming transaction would invalidate the intended lock.  Essentially they provide opportunities for optimisations, as the engine can examine incoming lock requests at the table level, rather than examining every individual row lock before deciding that it's ok to apply an exclusive lock.  If pages or rows need to be locked, a (I) will be applied at the table level, so the engine doesn't need to look for conflicts at the row level.
 
    There are three types of intent lock to match the three locks types above:
     - *Intent Exclusive (IX)*
@@ -26,26 +26,17 @@ Note that even a read will create a shared lock at the database level, to stop o
 
 For DML statements you'll get (S) at the database level, (IX) or (IU) at the table level, and (X) or (U) on the row.
 
-Row level locks: Exclusive (X), Shared (S), Update(U).  Their compatibility is:
-
-|-----+-----+-----+-----|
-|     | (X) | (S) | (U) |
-| (X) | x   | x   | x   |
-| (S) | x   | ✓   | ✓   |
-| (U) | x   | ✓   | x   |
-|-----+-----+-----+-----|
-
-
 Table level locks: Exclusive (X), Shared (S), Intent Exclusive (IX), Intent Shared (IS), Shared with Intent Exclusive (SIX).  Their compatibility is:
 
-|-------+-----+-----+------+------+-------|
-|       | (X) | (S) | (IX) | (IS) | (SIX) |
-| (X)   | x   | x   | x    | x    | x     |
-| (S)   | x   | ✓   | x    | ✓    | x     |
-| (IX)  | x   | x   | ✓    | ✓    | x     |
-| (IS)  | x   | ✓   | ✓    | ✓    | ✓     |
-| (SIX) | x   | x   | x    | ✓    | x     |
-|-------+-----+-----+------+------+-------|
+|-------+-----+-----+-----+------+------+-------|
+|       | (X) | (S) | (U) | (IX) | (IS) | (SIX) |
+| (X)   | x   | x   | x   | x    | x    | x     |
+| (S)   | x   | ✓   | ✓   | x    | ✓    | x     |
+| (U)   | x   | ✓   | x   | x    | ✓    | x     |
+| (IX)  | x   | x   | x   | ✓    | ✓    | x     |
+| (IS)  | x   | ✓   | ✓   | ✓    | ✓    | ✓     |
+| (SIX) | x   | x   | x   | x    | ✓    | x     |
+|-------+-----+-----+-----+------+------+-------|
 
 ** Lock escalation
 *Scenario*: deleting 30,000 rows.
@@ -53,7 +44,7 @@ Table level locks: Exclusive (X), Shared (S), Intent Exclusive (IX), Intent Shar
 *With lock escalation*: When more than 5,000 locks are acquired at a single level, SQL Server will escalate the lock to the next level up /skipping page locks/.  In other words, the 31,875 locks at the page and row level will be escalated to a single table-level lock.
 
 ** Lock querying
-/Dynamics Management View/ (DMV) provides a view called ~sys.dm_tran_locks~ that shows live locks used by current transactions.
+/Dynamics Management View/ (DMV) provides a view called [[https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-tran-locks-transact-sql?view=sql-server-ver15][sys.dm_tran_locks]] that shows live locks used by current transactions.
 
 The types of resource displayed in the ~resource_type~ columns are:
  - RID :: A single row within a heap.
@@ -69,7 +60,7 @@ The types of resource displayed in the ~resource_type~ columns are:
  - Database :: Lock on the entire database.
  - Object :: Something like a stored procedure or view.  see ~sys.all_objects~ for a list of them all.
 
-   Another view is ~sys.dm_os_wait_stats~, which helps look for blocking.
+   Another view is [[https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-os-wait-stats-transact-sql?view=sql-server-ver15][sys.dm_os_wait_stats]], which helps look for blocking from previous queries.
 
    The following script is useful for identifying locks.  Note that you should start a transaction, run your SQL, and the /don't commit or rollback/ until you've run the below script.  You can then start another transaction/query and run the script again to see where your locking is occurring (hopefully).
 #+begin_src sql
@@ -101,3 +92,25 @@ WHERE SP.dbid = DB_ID()
    AND DTL.[resource_type] <> 'DATABASE' 
 ORDER BY DTL.[request_session_id];
 #+end_src
+
+To get a list of [[https://learn.microsoft.com/en-us/sql/relational-databases/performance-monitor/sql-server-locks-object?view=sql-server-ver16][current locks and various stats]] with:
+#+begin_src sql
+SELECT * FROM sys.dm_os_performance_counter
+WHERE object_name LIKE '%Locks%';
+#+end_src
+
+There's also the [[https://learn.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-lock-transact-sql?view=sql-server-ver16][sp_lock]] stored procedure.
+
+Some more reading here:
+
+[[https://www.mssqltips.com/sqlservertip/2732/different-techniques-to-identify-blocking-in-sql-server/][Different Techniques to Identity Blocking in SQL Server.]]
+[[https://learn.microsoft.com/en-us/sql/relational-databases/extended-events/determine-which-queries-are-holding-locks?view=sql-server-ver16][Determine Which queries are holding locks.]]
+* Query Plans
+"Index seek" - just means that SQL Server knows the specific row that it's going to start at.  It might be the first row.....
+"Index scan" - starts at either end of the index.
+
+In other words, one is not always better or worse than the other.  Use ~SET STATISTICS IO ON~.
+so that you can see (in the messages tab of SSMS) how many reads there were.
+
+So as an example, if query has something like ~WHERE SomeId = 123~ and there's a /unique/ index on ~SomeId~ you should always see an index seek.  However, if the index is non-unique, but /ordered/, then you will see an index scan.  This just means that it starts where it finds the first row with a ~SomeId~ equalling 123, and then scans along the index until it comes across the first non-matching value.
+

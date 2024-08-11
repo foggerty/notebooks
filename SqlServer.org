@@ -1,0 +1,103 @@
+* Locking
+** Types of lock
+ - Exclusive (X) :: Locks a row or page for a given transaction, other transactions have to wait their turn.  Used when updating data (DML statements).  Cannot be applied when a shared lock is active.
+ - Shared (S) :: Allows other transactions to read the data, only the initiating transaction can update the data.  Disallows DDL statements.
+ - Update (U) :: If there are no existing shared locks, acts the same way as an exclusive lock.  If shared locks are active, joins as a shared lock, turning into an exclusive lock when it's the last remaining lock.  An update lock can be applied to a shared lock, but a shared lock cannot be applied to an update lock.
+ - Intent (I) :: Basically flags indicating intent to lock, without actually doing so.  Allows the engine do determine if an incoming transaction would invalidate the intended lock.  Essentially they provide opportunities for optimisations, as the engine can examine incoming lock requests at the table level, rather than examining every individual row lock before deciding that it's ok to apply an exclusive lock.
+
+   There are three types of intent lock to match the three locks types above:
+    - *Intent Exclusive (IX)*
+    - *Intent Shared (IS)*
+    - *Intent Update (IU)*
+
+   There are also three types of /conversion/ locks:
+    - Shared with Intent Exclusive (SIX) :: Table level, and only one at a time.  Other transactions are still able to acquire a (IS).  Indicates that will both query and update.  Once acquired, will then acquire a (IX) on the page, and finally a (X) on the rows.
+    - Shared with Intent Update (SIU) :: A combination of (S) and (IU).  Used for example, when a transaction want to query (D), followed by an update (IU).
+    - Update with Intent Exclusive (UIX) :: Happens when an update (U) and Intent Exclusive (IX) locks are acquired at the same time.
+ - Schema (Sch) :: There are two types of schema lock:
+   - Schema Modification Lock (Sch-M) :: Used when modifying (say) a table, or an index needs to be updated.
+   - Schema Stability Lock (Sch-S) :: Used when generating an execution plan - basically says "I'm about to update this schema, but feel free to read/update the data while I figure out how."
+ - Bulk update (BU) :: Used at the table level when performing a bulk update.
+
+** Lock Hirearchy
+Database -> Table -> Page -> Row
+
+Note that even a read will create a shared lock at the database level, to stop others (say) restoring the database from a backup while it's being read.  At the same time, a (IS) lock will be applied at the table level, and a (S) lock on the row.
+
+For DML statements you'll get (S) at the database level, (IX) or (IU) at the table level, and (X) or (U) on the row.
+
+Row level locks: Exclusive (X), Shared (S), Update(U).  Their compatibility is:
+
+|-----+-----+-----+-----|
+|     | (X) | (S) | (U) |
+| (X) | x   | x   | x   |
+| (S) | x   | ✓   | ✓   |
+| (U) | x   | ✓   | x   |
+|-----+-----+-----+-----|
+
+
+Table level locks: Exclusive (X), Shared (S), Intent Exclusive (IX), Intent Shared (IS), Shared with Intent Exclusive (SIX).  Their compatibility is:
+
+|-------+-----+-----+------+------+-------|
+|       | (X) | (S) | (IX) | (IS) | (SIX) |
+| (X)   | x   | x   | x    | x    | x     |
+| (S)   | x   | ✓   | x    | ✓    | x     |
+| (IX)  | x   | x   | ✓    | ✓    | x     |
+| (IS)  | x   | ✓   | ✓    | ✓    | ✓     |
+| (SIX) | x   | x   | x    | ✓    | x     |
+|-------+-----+-----+------+------+-------|
+
+** Lock escalation
+*Scenario*: deleting 30,000 rows.
+*Without lock escalation*: (S) on the database, (IX) on the table, 1,875 (IX) on pages, and 30,000 (X) on the rows themselves.  This results in about 3MB of locking info for a single operation.
+*With lock escalation*: When more than 5,000 locks are acquired at a single level, SQL Server will escalate the lock to the next level up /skipping page locks/.  In other words, the 31,875 locks at the page and row level will be escalated to a single table-level lock.
+
+** Lock querying
+/Dynamics Management View/ (DMV) provides a view called ~sys.dm_tran_locks~ that shows live locks used by current transactions.
+
+The types of resource displayed in the ~resource_type~ columns are:
+ - RID :: A single row within a heap.
+ - Key :: Row lock in an index.
+ - Page :: A single (usually 8kb) page.
+ - Extent :: 8 pages (contiguous).
+ - HoBT :: Heap or B-tree.
+ - Table :: Entire table /and/ indexes.
+ - File :: A database file.
+ - Application :: An application specific resource.
+ - Metadata :: Metadata (duh).
+ - Allocation_Unit :: An allocation unit (no idea what these are?).
+ - Database :: Lock on the entire database.
+ - Object :: Something like a stored procedure or view.  see ~sys.all_objects~ for a list of them all.
+
+   Another view is ~sys.dm_os_wait_stats~, which helps look for blocking.
+
+   The following script is useful for identifying locks.  Note that you should start a transaction, run your SQL, and the /don't commit or rollback/ until you've run the below script.  You can then start another transaction/query and run the script again to see where your locking is occurring (hopefully).
+#+begin_src sql
+--============================================ 
+--View Locking in Current Database 
+--Author: Timothy Ford 
+--http://thesqlagentman.com 
+--============================================ 
+SELECT DTL.resource_type,  
+   CASE   
+       WHEN DTL.resource_type IN ('DATABASE', 'FILE', 'METADATA') THEN DTL.resource_type  
+       WHEN DTL.resource_type = 'OBJECT' THEN OBJECT_NAME(DTL.resource_associated_entity_id, SP.[dbid])  
+       WHEN DTL.resource_type IN ('KEY', 'PAGE', 'RID') THEN   
+           (  
+           SELECT OBJECT_NAME([object_id])  
+           FROM sys.partitions  
+           WHERE sys.partitions.hobt_id =   
+             DTL.resource_associated_entity_id  
+           )  
+       ELSE 'Unidentified'  
+   END AS requested_object_name, DTL.request_mode, DTL.request_status,  
+   DEST.TEXT, SP.spid, SP.blocked, SP.status, SP.loginame 
+FROM sys.dm_tran_locks DTL  
+   INNER JOIN sys.sysprocesses SP  
+       ON DTL.request_session_id = SP.spid   
+   --INNER JOIN sys.[dm_exec_requests] AS SDER ON SP.[spid] = [SDER].[session_id] 
+   CROSS APPLY sys.dm_exec_sql_text(SP.sql_handle) AS DEST  
+WHERE SP.dbid = DB_ID()  
+   AND DTL.[resource_type] <> 'DATABASE' 
+ORDER BY DTL.[request_session_id];
+#+end_src

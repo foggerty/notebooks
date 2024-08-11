@@ -19,6 +19,14 @@ var dict2 = {key = value, dog = "Fred"}
 # however, cannot use numbers as keys.
 #+end_src
 
+ALWAYS use `:=` to assign variables, as it enforces static typing, which has a rather large performance advantage (and also gives you better code-hints in the IDE).
+
+#+begin_src python
+# Instaed of:
+var fred = 0;
+#use:
+var fred := 0;
+#+end_src
 
 GDScript is a white-space indentation thingie language, so functions and loops etc are defined like so:
 
@@ -49,18 +57,19 @@ class Fred
 
 # define constructirs like so:
 func _init()
-    # setupo
+    # setup
 
 func DoStuff()
     # stuff
 
 # if a subclass wants to override a method, can call the base one like so:
-func DoStuff() # in child class
-    .DoStuff() # do parent's stuff
-    # do more stuff
+func DoStuff(a, b) # in child class
+    super(a, b) # do parent's stuff
+    super.anotherMethod(a, b) # call method in parent class
+    
 
 # If you want your node derived class to have an icon in the editor:
-extands Node
+extends Node
 class_name MyThingie, "res://assets/icons/thingie.png"
 
 # Even if a file doesn't specify a class name, you can still descend from it, like so:
@@ -110,9 +119,9 @@ var c: int # can only have ints assigned to it
 # Coroutines, basically.  Yield will return to caller, saving current state of function saved.  Caller can then call .resume() on the returned object to return back to it.
 
 func yielding_func()
-    print("Hello")
+    print("Hello ")
     print(yield())
-    print("World")
+    print(" World")
 
 func calling_func()
     var f = yielding_func()
@@ -129,7 +138,7 @@ There's a lot more here to do with signals that I'm too tired to go through righ
 
 Nodes are the building blocks of Godot, and every node can (optionally) receive a callback per-frame.  Nodes can have other nodes as children nodes.
 
-Nodes are collected together in a scene's scene tree.
+Nodes are collected together in a scene's scene tree.  While they may look the same in the editor browser, a scene (which will contain may nodes and sub-nodes) will appear as a single node in the browser.
 
 A scene has a single root node (which can then contain other nodes), can be saved/loaded to disk, and can be instanced as needed.  One scene must be the main scene.  Note that scenes are also nodes, as they can be made the children of nodes.
 
@@ -164,6 +173,8 @@ add_child(sceneNode)
 I.e. the observer/subscriber pattern.
 
 *NOTE:* when connecting signals via the node editor, you need to first make sure that the target node has a script attached to it.
+
+Signals should be preferred to using code like `get_parent()`, because (again) a node should have as little knowledge about it's environment as possible.  One reason, is that it makes moving the node around dynamically difficult, as `get_parent()` will now return something different (which may or may not be desired).
 
 Connect up signals like so:
 
@@ -206,6 +217,8 @@ By default, get node uses the current node as the base node.  So ~get_node("Butt
 To reference a child of a child, use ~get_node("Panel/Button")~.
 
 Alternately (and this will enable code-complete) use the ~$~ shorthand, e.g. ~$Panel/Sprite.visible = false~.
+
+IMPORTANT: the ~$~ shorthand ONLY works at run-time.  For compile time - i.e. using ~preload()~ you will need to a constant string.
 
 * Best practices
 Each scene should be able to be instanced without knowing much, if anything about the environment in which it's being created.  Use GDScript's horrifying string-based dependency injection if nodes need to know about higher-level nodes.  Basically, think of it with an OO mindset, so child nodes (classes) shouldn't depend on state in the parent nodes (or even know about it).  Send messages back up the stack/tree and have the parent nodes react.  I think.  Goes against "ask, don't tell" but then most of Godot is build around the observer pattern so whatever.

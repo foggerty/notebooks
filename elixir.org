@@ -2,55 +2,170 @@
 ** Files
 ~.exs~ for scripts (i.e. to run at the command line with `elixir script_name.exs`).
 ~.ex~ for files to be compiled into a bigger thing.
+
 ** Naming
  - Module :: Capitalise.
- - functions :: snake_case
- - Variables ::
+ - functions :: Snake_case.
+ - Variables :: Lower case.
+ - Unuser variable :: Start with an underscore.
+
+** Calling Erland from ELixir
+Simple syntax: ~:string.len(~c"abc")~ will call the function ~len~ contained in the ~string~ module.
+
 * Types
 ** Value
  - Integers :: Bignums, yay!
    Can be written with literals like so: ~123~ ~0xa344~ ~0o176~ ~0b1010101~.
 
- - Ranges :: x..y, where x & y are integers.
+ - Ranges :: ~x..y~, where x & y are integers.  Can add a step like so: ~1..10/2~
+
  - Atoms :: i.e. keys, anything starting with a ':', so the usual Lisp rules apply.
- - Regular expressions :: ~r{regexp} or ~r{regexp}options, where options is one or more letters like ~i~ to mean case-insensitive.
+
+ - Regular expressions :: ~r{regexp}~ or ~r{regexp}options~, where options is one or more letters like ~i~ to mean case-insensitive.
+
  - Floating point :: Uses IEEE 754, and can be written like so :~314150.0e-5~
+
+ - Booleen (and/or/not) :: The usual, but note that the =and=, =or= and =not= operations only work on booleans, so ~tue and 1~ will throw an error.  However, because of boolean short-cutting, ~true and some_value~ will return ~some_value~, so useful as a return statement.
+
+ - Boolean (&&/||/!) :: Less strict versions of the above.  Will work with any value, where only nil is considered to be 'false'.
+
+ - Strings :: UTF-8 encoded.  Strings are a sub-set of 'binaries', which are a sub-set of bitstrings.
+
+   A binary can be declared as ~<<74, 97, 109, 101, 115>>~, which, if interpreted as a string, is the name "James".  In fact, the interpreter will treat that as a UTF-8 string and return "James", whereas ~<<1, 2, 3>>~ will just return the printed representation of that binary (e.g. it looks the same in the REPL).
+
+   *WARNING, confusion ahead:* While Elixir works with UTF-8 strings, denoted with double-quotes ("Fred"), Erlang and the BEAM work with lists of ASCII characters, which are denoted with single-quotes ('Fred').  Remember this when passing strings into Erlang functions.
+
+   Use the syntax ~~c"Fred"~ to denote a charlist, which is a list of Unicode chars, of which a list of ASCII chars is a subset.  This allows you to pass Elixir string to Erlang.
+
+   Concatenation uses the ~<>~ operator.
+
+   Interpolation is the same as Ruby: ~"My dog has #{legs} legs."~
+   
 ** System types
  - PID (process ID) :: Local or remote process IDs.  Get the current with the ~self~ keyword.  Ports are references to external (to the application) resources.
+
  - References :: Globally unique references, made with the ~make_ref~ function.
+   
+** Binaries
+Will come back to these, but they allow for binary literals in code, and packing can even be specified.  This.  Is.  Awesome.  They're also how UTF-8 is handled internally.
+
 ** Collection types
-- Tuples :: Ordered collection of values: {1, 23, 4, a} (Close to an array).
-- Lists :: [1, 23, 4, a].  Note that these are linked lists, and an empty list will contain two references, head and tail.
-  There are some basic operations that can be performed on lists:
-  ~[1, 2, 3] ++ [4, 5, 6]~ (concatenate)
-  ~[1, 2, 3, 4] -- [2, 4]~ (difference)
-  ~1 in [1, 2, 3]~ (membership)
+*** Maps
+- Literal :: ~%{1 => "a", 2 => "b", 3 => "c"}~~ or using keys, ~%{a: 1, b: 2, c: 3}~
+- Module :: ~Map~
 
-  Lists can be used to create a 'keyword' list:
-  ~[a: 1, b: 2]  => [ {a:, 1}, {b:, 2}]~
+Maps implement the protocols  ~Collectable~ and ~Enumerable~.
 
-  Also, if a keyword list is the last argument to a function, then all brackets/braces can be removed:
-  ~func [{:a, 1, {:b, 2}]~
-  can be more clearly written like so:
-  ~func :a 1, b:2~
-- Maps :: These can have mixed types for keys/values.
+To get a new map with updated keys, use the ~|~ operator:
 
-  Literal: ~%{key => value, key2, value2}~
+#+begin_src elixir-ts
+fred = %{a: 1, b: 2, c: 3} # {c: 3, b: 2, a: 1}
+ethel = %{fred | a: 6}     # {c: 3, b: 2, a:6}
+#+end_src
 
-  Access elements like so: ~myMap[x]~.  ~nil~ will be returned if a key is not found.
-- Structs ::
-- Binaries :: Will come back to these, but they allow for binary literals in code, and packing can even be specified.  This.  Is.  Awesome.  They're also how UTF-8 is handled internally.
-** Functions
+Note that when keys are atoms, you can access a value using dot notation:
+
+#+begin_src elixir-ts
+fred[:a] # is equivilent to
+fred.a
+#+end_src
+
+*** Lists
+- Literal :: ~[]~
+- Module :: ~List~
+
+~[1, 2, 3, 4, a, :b, c, "d"]~
+
+Note that these are singly linked lists, and an empty list will contain two references, head and tail.
+
+There are some basic operations that can be performed on lists:
+
+~[1, 2, 3] ++ [4, 5, 6]~ (concatenate)
+~[1, 2, 3, 4] -- [2, 4]~ (difference)
+~1 in [1, 2, 3]~ (membership)
+
+*Improper Lists*
+Because lists are basically cons pairs, ~[1, 2] ++ 3~ will result in ~[1, 2 | 3]~, meaning that the last element is a value, not the empty list.  Same as Lisp.
+
+#+begin_src elixir
+[1, 2] ++ 3    # [1, 2 | 3]
+[1, 2] ++ [3]  # [1, 2, 3]
+[a | b] = [1, 2, 3]
+
+# Note this this means when you break a list up into
+# 'head/tail' you get a value and a list:
+
+a # 1
+b # [2, 3]
+
+# Also, because they are singly-linked lists, prepending is
+# fast, while appending is slow:
+a = [2, 3]
+[1 | a] # fast
+a ++ 4  # slow 
+#+end_src
+
+*** Keyword Lists
+- Literal :: ~{}~
+- Module :: ~Map~
+
+Lists can be used to create a 'keyword' list:
+
+~[a: 1, b: 2]  => [ {a:, 1}, {b:, 2}]~
+
+(Note that ~iex~ will still print the first form, but inspect it and it'll be a keyword list.)
+
+If a keyword list is the last argument to a function, then all brackets/braces can be removed:
+
+~func(x, [{:a, 1}, {:b, 2}]) # or alternately:~
+~func(x, [a: 1, b: 2]~)
+
+can be more clearly written like so:
+
+~func(x, :a 1, b:2~)
+
+*** Tuples :: 
+- Literal :: ~{}~
+- Module :: ~Tuple~
+
+Generally used for passing a collection of values into or out of a function or key/value pairs (see [[*Keyword Lists][Keyword Lists]]).  Basically don't use for collections.
+
+'Keyed tuples' are just a tuple where the first element is a key, and the second is a related value, such as ~{:ok, false}~.
+
+*** Structs ::
+Structs are defined inside modules.
+
+#+begin_src elixir-ts
+defmodule Doggo do
+  # Default values can (optionally) be set here.
+  # They must come after fields with no default, as
+  # a keyword list.
+  defstruct dog [:age, name: "Set me!", breed: "Unkown"]
+end
+
+fred = %Doggo{name: "Fred", breed: "English Setter", age: 13}
+#+end_src
+
+*NOTE*: Structs are basically map, and so all of the ~Map~ module's functions can be applied to them.  They do /not/, however, implement the ~Collectable~ and ~Enumerable~ protocols.
+
+* Pattern Matching
+** Strings
+
+** Maps
+** Structs
+** Lists
+** Tuples
+* Functions
 ~sum = fn (a, b) -> a + b end~
 
-The above will create an anonymous function, meaning it needs to be called like so: ~fn.(1, 2)~ (notice the period - a named function doesn't need that.)  To be clear, the above is an anonymous function, that is /bound/ to the identity ~sum~.  'Named functions' must be declared in a module.
+The above will create an anonymous function, meaning it needs to be called like so: ~sum.(1, 2)~ (notice the period - a named function doesn't need that.)  To be clear, the above is an anonymous function, that is /bound/ to the identity ~sum~.  'Named functions' must be declared in a module.
 
 Pattern matching is automatic with function parameters, so the following will work: ~sum.( {1, 2} )
 
 You can even create function with the ~&~ operator and strings or regular expressions:
 ~fred = &"Moose #{&1}"
 fred.("Wobble") -> "Moose Wobble"~
-*** Pipe operator |>
+** Pipe operator |>
 Same as the threading macro in Clojure:
 ~filing = DB.find_customers
             |> get_orders
@@ -58,26 +173,19 @@ Same as the threading macro in Clojure:
             |> file~
 This will take whatever is on the left of ~|>~ and insert it as the first parameter of the next function.  The result is then inserted as the first parameter of the next function and repeat.
 
-** Strings
- - interpolation :: same as ruby: ~#{foo}~
-** Lists
-Note that lists are terminated with an empty list, so the following is valid:
-~def len([]), do: 0
-def len([head | tail]), do: 1 + len(tail)
-** Maps
-* Truthyness
-~true, false, nil~ - ~nil~ is treated as for boolean operations.  Fun fact - each is an alias for an atom, ~:true, :false, :nil~.
-Anything other than ~false~ or ~nil~ is treated as ~true~ - i.e. "truthy".
 * Operators / equality
-~===~ - strict equality.
+~===~ - strict equality (i.e. 3.0 will not "equal" 3).
 ~!==~ - strict inequality.
 ~==~  - value equality, the usual.
+
 * Random coding "stuff"
-~Use ~with~ instead of 'let':
-~with {ok, fred} = getFred(),
-      wobble = getWobble()
- do #stuff...
- end~
+*IO.Inspect* - will print out info about what it's passed, and then return whatever it was passed.  Meaning, you can stick this in the middle of a pipeline operation to get info abour what's being passed to the next function.
+
+You can also pass in a keyword list with formatting options:
+
+~IO.inspect(var, label: "Thing the first", width: 0)~
+
 * Modules
 Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
+
 Module names are converted to atoms under the hood.

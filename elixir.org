@@ -1,31 +1,54 @@
 * Conventions
 ** Files
 ~.exs~ for scripts (i.e. to run at the command line with `elixir script_name.exs`).
-~.ex~ for files to be compiled into a bigger thing.
 
+~.ex~ for files to be compiled into a bigger thingie.
+
+Note that this is a convention, the compiler doesn't give a crap.
 ** Naming
  - Module :: Capitalise.
- - functions :: Snake_case.
- - Variables :: Lower case.
- - Unuser variable :: Start with an underscore.
+ - functions :: Lower snake_case.
+ - Variables :: Lower snake_case.
+ - Unused variable :: Start with an underscore.
 
-** Calling Erland from ELixir
-Simple syntax: ~:string.len(~c"abc")~ will call the function ~len~ contained in the ~string~ module.
+ Note that all modules have the implicit name =Elixir= pre-pended to them, so to get a list of all available modules in =iex=, just type =Elixir.= and hit tab.
 
+** Calling Erlang from ELixir
+Simple syntax: ~:string.len(~c"abc")~ will call the function ~len~ contained in the ~string~ module.  Note that unlike Elixir, Erlang modules are named in lower-case.
+
+** Mix
+Dependency manager, project creation/building/testing.
+- =.ex= :: Source code to be compiled into byte-code (AOT).
+- =.exs= :: File to be used as a script - compiled at run-time (interpreted).
+
+* IEX
+iex will auto-load any =.beam= module found in the directory that you run it from.
+
+You can tell iex to load any =.exs= file like so:
+
+=iex module.exs=
+
+Once in iex, any changes made to the module can be re-compiled with the =r= command:
+
+=r(ModuleName)=
+
+To start the observer from =iex=, use =:observer.start()=.
+
+Get info on any symbol with =i(foo)= and help on any function with =h(Foo.bar/1)=.Host
 * Types
-** Value
+** Values
  - Integers :: Bignums, yay!
    Can be written with literals like so: ~123~ ~0xa344~ ~0o176~ ~0b1010101~.
 
  - Ranges :: ~x..y~, where x & y are integers.  Can add a step like so: ~1..10/2~
 
- - Atoms :: i.e. keys, anything starting with a ':', so the usual Lisp rules apply.
+ - Atoms :: i.e. keys, anything starting with a ':', so the usual Lisp rules apply.  Note that there is a limit on the number of atoms allowed in the system (around 1 mil) - use ~erlang.system_into(:atom_limit)~ to confirm.
 
  - Regular expressions :: ~r{regexp}~ or ~r{regexp}options~, where options is one or more letters like ~i~ to mean case-insensitive.
 
- - Floating point :: Uses IEEE 754, and can be written like so :~314150.0e-5~
+ - Floating point :: Uses IEEE 754, and can be written like so : ~314150.0e-5~
 
- - Booleen (and/or/not) :: The usual, but note that the =and=, =or= and =not= operations only work on booleans, so ~tue and 1~ will throw an error.  However, because of boolean short-cutting, ~true and some_value~ will return ~some_value~, so useful as a return statement.
+ - Booleen (and/or/not) :: The usual, but note that the =and=, =or= and =not= operations only work on booleans, so ~tue and 1~ will throw an error.  However, because of boolean short-cutting, ~true and some_test_value~ will return true if ~some_test_value~ evaluates to true, so useful as a return statement.
 
  - Boolean (&&/||/!) :: Less strict versions of the above.  Will work with any value, where only nil is considered to be 'false'.
 
@@ -33,19 +56,19 @@ Simple syntax: ~:string.len(~c"abc")~ will call the function ~len~ contained in 
 
    A binary can be declared as ~<<74, 97, 109, 101, 115>>~, which, if interpreted as a string, is the name "James".  In fact, the interpreter will treat that as a UTF-8 string and return "James", whereas ~<<1, 2, 3>>~ will just return the printed representation of that binary (e.g. it looks the same in the REPL).
 
-   *WARNING, confusion ahead:* While Elixir works with UTF-8 strings, denoted with double-quotes ("Fred"), Erlang and the BEAM work with lists of ASCII characters, which are denoted with single-quotes ('Fred').  Remember this when passing strings into Erlang functions.
+   *WARNING, confusion ahead:* While Elixir works with UTF-8 strings, denoted with double-quotes: (~"Fred"~).  Erlang and the BEAM work with lists of ASCII characters, which are denoted with single-quotes: (='Fred'=).  Remember this when passing strings into Erlang functions.
 
    Use the syntax ~~c"Fred"~ to denote a charlist, which is a list of Unicode chars, of which a list of ASCII chars is a subset.  This allows you to pass Elixir string to Erlang.
 
    Concatenation uses the ~<>~ operator.
 
    Interpolation is the same as Ruby: ~"My dog has #{legs} legs."~
-   
+
 ** System types
  - PID (process ID) :: Local or remote process IDs.  Get the current with the ~self~ keyword.  Ports are references to external (to the application) resources.
 
  - References :: Globally unique references, made with the ~make_ref~ function.
-   
+
 ** Binaries
 Will come back to these, but they allow for binary literals in code, and packing can even be specified.  This.  Is.  Awesome.  They're also how UTF-8 is handled internally.
 
@@ -85,29 +108,29 @@ There are some basic operations that can be performed on lists:
 ~1 in [1, 2, 3]~ (membership)
 
 *Improper Lists*
-Because lists are basically cons pairs, ~[1, 2] ++ 3~ will result in ~[1, 2 | 3]~, meaning that the last element is a value, not the empty list.  Same as Lisp.
+Because lists are basically cons pairs, ~[1, 2] ++ 3~ will result in ~[1, 2 | 3]~, meaning that the last element is a value, not the empty list.  Same as Lisp.  Also like Lisp, using pattern matching as show below, the first value assigned will be an 'atom' (int), while the second will be a list.
 
-#+begin_src elixir
+#+begin_src elixir-ts
+# Pattern matching,
+[a | rest] = [1, 2, 3]
+a # => 1 (int)
+rest # => [1, 2] (list)
+
+# Concatination / creation.
 [1, 2] ++ 3    # [1, 2 | 3]
 [1, 2] ++ [3]  # [1, 2, 3]
 [a | b] = [1, 2, 3]
-
-# Note this this means when you break a list up into
-# 'head/tail' you get a value and a list:
-
-a # 1
-b # [2, 3]
 
 # Also, because they are singly-linked lists, prepending is
 # fast, while appending is slow:
 a = [2, 3]
 [1 | a] # fast
-a ++ 4  # slow 
+a ++ 4  # slow
 #+end_src
 
 *** Keyword Lists
-- Literal :: ~{}~
-- Module :: ~Map~
+- Literal :: ~[:a 1, b: 2]~
+- Module :: ~List~
 
 Lists can be used to create a 'keyword' list:
 
@@ -124,11 +147,13 @@ can be more clearly written like so:
 
 ~func(x, :a 1, b:2~)
 
-*** Tuples :: 
+/Warning/ - keyword lists can have duplicate keys, so not true map.
+
+*** Tuples ::
 - Literal :: ~{}~
 - Module :: ~Tuple~
 
-Generally used for passing a collection of values into or out of a function or key/value pairs (see [[*Keyword Lists][Keyword Lists]]).  Basically don't use for collections.
+Generally used for passing a collection of values into or out of a function or key/value pairs (see [[*Keyword Lists][Keyword Lists]]).  /Don't/ use for collections.
 
 'Keyed tuples' are just a tuple where the first element is a key, and the second is a related value, such as ~{:ok, false}~.
 
@@ -146,46 +171,477 @@ end
 fred = %Doggo{name: "Fred", breed: "English Setter", age: 13}
 #+end_src
 
-*NOTE*: Structs are basically map, and so all of the ~Map~ module's functions can be applied to them.  They do /not/, however, implement the ~Collectable~ and ~Enumerable~ protocols.
+*NOTE*: Structs are basically maps, and so all of the ~Map~ module's functions can be applied to them.  They do /not/, however, implement the ~Collectable~ and ~Enumerable~ protocols.  /Structs are maps, but maps are bot structs./
 
+* Variables
+Dynamically bound, statically typed.
+
+Any variable starting with =_= will be ignored by the compiler.
+
+ToDo - make some notes on Dialyzer (static type hints).
+* Comparisons
+Warning!  Elixir is totally happy with the following, so as to help with sorting algorithms:
+
+#+begin_src elixir-ts
+"fred" < 20 # -> false
+nil > 0     # -> true
+nil < 0     # -> false
+#+end_src
+
+The rule is:
+=number < atom < reference < function < port < id < tuple < map < list < bitstring=
 * Pattern Matching
+** Overview
+Pattern matching includes both assertions and destructuring.  In fact, it's best to think of them as assertions, that the pattern matches (and so can undergo desructuring).
+
 ** Strings
+Use the string concatenation operator - remember, Elixir is asserting that both sides match, and since =id= is a var, it will be populated to make it so.
+
+#+begin_src elixir-ts
+msg = "district:9"
+"district:" <> id = message
+
+id # => 9
+#+end_src
+
+Note that the left-hand operand must be wither a constant, or a pinned variable (eg. =^var_name=) for this to work.  Note the second, look up what 'pinned' variables are...
 
 ** Maps
+#+begin_src elixir-ts
+fred = %{a: 1, b: 2}
+%{:a 1, b: tmp} = fred
+fred # => 2
+%{a: 4, v: tmp} = fred # ERROR - cannot match
+#+end_src
+
 ** Structs
+What this boils down to is, "all structs are maps, but not all maps are structs."
+
 ** Lists
+ #+begin_src elixir-ts
+ # A nice way to think of this, is that the below statement can be thought of as "assert that the list on the right side has at least one element."
+ [head | _] = [1, 2, 3]
+ head # => 1
+
+ [head | rest] = [1, 2, 3]
+ head # => 1
+ rest ## => [2, 3]
+ #+end_src
+
 ** Tuples
+Unlike lists or maps, when matching a tuple, ALL elements need to be matched:
+#+begin_src elixir-ts
+{} = {:add, [1, 2]}
+# ERROR!
+{operation, [first, second]} = {:add, [10, 20]}
+operation # => :add
+first     # => 10
+second    # => 20
+{operation, _} = {:add, [1, 2]}
+operation  # => :add
+{first, _ third} = {1, 2, 3}
+first # => 1
+third # => 3
+#+end_src
+
 * Functions
-~sum = fn (a, b) -> a + b end~
+#+begin_src elixir
+sum = fn(a, b) ->
+  a + b
+end
 
-The above will create an anonymous function, meaning it needs to be called like so: ~sum.(1, 2)~ (notice the period - a named function doesn't need that.)  To be clear, the above is an anonymous function, that is /bound/ to the identity ~sum~.  'Named functions' must be declared in a module.
+# or sum = fn(a, b) -> a + b end
 
-Pattern matching is automatic with function parameters, so the following will work: ~sum.( {1, 2} )
+fred = sum.(1, 2)
+#+end_src
 
-You can even create function with the ~&~ operator and strings or regular expressions:
-~fred = &"Moose #{&1}"
-fred.("Wobble") -> "Moose Wobble"~
-** Pipe operator |>
+The above will create an anonymous function, meaning it needs to be called like so: ~sum.(1, 2)~ (notice the period - a named function doesn't need that).  To be clear, the above is an anonymous function that is /bound/ to the identity ~sum~.  'Named functions' must be declared in a module.
+
+Note that the =.= is required because Elixir has separate namespaces for variables and functions.  Without the =.=, Elixir will look up the name in the function namespace.  Because we created it as a local variable, we need to tell Elixir to use the variable namespace.
+
+Pattern matching is automatic with function parameters, so the following will work: =sum.({ 1, 2 })=
+
+Named functions /must/ be defined in modules.
+
+** Higher-order functions
+Higher-order functions are called like so:
+
+#+begin_src elixir-ts
+add = fn(amnt) ->
+  fn(x) -> x + amnt end
+end
+
+fred = {a: 1}
+Map.update(fred, :a, 0, add.(10))
+fred # -> {a: 11}
+#+end_src
+
+** Capture operator
+To use a named function as anonymous function (i.e. one passed in as a paramater), use the capture operator =&=.
+
+For example, the following code has to treat =outer_fun= and =inner_fun= as anonymous functions because they're passed in as parameters:
+
+#+begin_src elixir-ts
+defmodule Stuff do
+  def compose(data, outer_fun, inner_fun) do
+    outer_fun.(inner_fun.(data))
+  end
+end
+#+end_src
+
+Which means that the following call will fail, as =length= and =String.split= are named functions:
+
+#+begin_src elixir-ts
+text = "blah bah blah"
+count = Stuff.compose(text, length, String.split)  # ERROR
+
+# Instead, use the capture operator:
+count = Stuff.compose(text, &length/1 &String.split/1)
+#+end_src
+
+Note that in the above example you /must/ specify the arity of the function so the compiler knows which one you mean.
+
+You can also create function with the capture (~&)~ operator and strings or regular expressions:
+
+#+begin_src elixir-ts
+fred = &"Moose #{&1}"
+fred.("Wobble") -> "Moose Wobble"
+
+double = &(&1 * 2)
+double.(2) # -> 4
+#+end_src
+
+Finally the capture operator can be used to create anonymous functions inside, say, mapping functions:
+
+#+begin_src elixir-ts
+Enum.map([1, 2, 3], fn x -. X * 2 end)
+# Can be rewritten as:
+Enum.map([1, 2, 3], &(&1 * 2))
+# Where &1 represents the first argument, and &2 the second etc.
+#+end_src
+
+** Tail-call recusrsion
+
+#+begin_src elixir-ts
+defmodule Util do
+  def sum(list), do: do_sum(list, 0)
+  defp do_sum([head | tail], total), do: do_sum(tail, total + head)
+  defp do_sum([], total), do: total
+end
+#+end_src
+
+* Pipe operator |>
 Same as the threading macro in Clojure:
-~filing = DB.find_customers
-            |> get_orders
-            |> add_sales_tax(2022)
-            |> file~
+
+#+begin_src elixir-ts
+filing = DB.find_customers
+|> get_orders
+|> add_sales_tax(2022)
+|> file
+#+end_src
+
 This will take whatever is on the left of ~|>~ and insert it as the first parameter of the next function.  The result is then inserted as the first parameter of the next function and repeat.
+
+* Control flow
+First, remember that everything in Elixir is an expression, so no actual 'statements', as such.
+
+That includes =if= statements (which again, are expressions):
+
+#+begin_src elixir-ts
+fred = if true do 10 else 20 end
+fred # -> true
+
+fred = if(true do: foo, else:bar)
+
+# brackets are optional
+fred = unless true, do: foo, else: bar
+
+if fred do
+  msg = "Hi Fred!"
+else
+  msg = "Who be you?"
+end
+#+end_src
+
+** Cond
+Use =cond= when you want to test a bunch of boolean expressions:
+
+#+begin_src elixir-ts
+msg = cond do
+  true ->
+    "Msg1"
+  false ->
+    "Msg2"
+end
+#+end_src
+
+** Case
+Use =case= when you want to match against a set of patterns:
+
+#+begin_src elixir-ts
+age =
+  IO.gets("Age: ")
+  |> Integer.parse()
+
+msg =
+  case age do
+        :error ->
+          "Stop mucking about."
+        {x, _} when x >= 25 ->
+          "You can vote and run for office"
+        {x, _} when x >= 18 ->
+          "You can vote."
+        {_, _} ->
+          "Get outta here, kid."
+      end
+#+end_src
+
+Note that =when= has to be used for checking ranges etc.
 
 * Operators / equality
 ~===~ - strict equality (i.e. 3.0 will not "equal" 3).
 ~!==~ - strict inequality.
 ~==~  - value equality, the usual.
 
+* Modules
+Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
+
+Module names are converted to atoms under the hood.
+
+** Module attributes
+
+Module attributes are evaluated at /compile time/.
+
+#+begin_src elixir-ts
+defmodule Party do
+  @mascots %{   # COMPILE TIME!
+     silly: "clown",
+     green: "flower",
+   }
+
+  @parties Map.keys(mascots)
+
+  # Default paramater, so can be called as mascot(:silly).  Will
+  # automatically call next function down.
+  def logo(party, size \\ :small)
+
+  # 'Happy' path
+  def logo(party, size) when party in parties do
+    mascot = @mascots[party]
+    do_logo(mascot, size)
+  end
+
+  # When unknown party is passed in.  Again, becaue of the order that
+  # pattern matching happens, this has to come ofter the happy-path
+  # function.
+  def logo(_, size), :do do_logo("other", size)
+
+  # Example of single-line functions.
+  # IMPORTANT - pattern matching functions are tested in the order that
+  # they are written!
+  defp do_logo(mascot, :small), do: "#{mascot}_small.png"
+  defp do_logo(mascot, _other_size), do: "#{mascot}_normal.png"
+end
+#+end_src
+
+** Importing
+#+begin_src elixir-ts
+defmodule fred do
+  import Enum                    # imports all functions
+  import Enum, only: [reverse: 1] # import a list of functions
+
+  def stuff(list) do
+    #...
+    Enum.reverse(list) # without using import
+    reverse(list)      # using import
+  end
+end
+#+end_src
+
+* Guards
+- Comparisons :: ====, =<=, =>=, etc
+- Boolean operations :: =and=, =or=, =not=
+- Arithmetic :: =1 + 2=
+- in / not in :: =args in [:a, :b]=
+- type check :: =is_list()= etc
+
+Only functions in  =Kernel= module can be used as guards.  Note that the documentation will indicate if a function can be used as a guard.
+
+/Warning/: if a function in a guard clause fails for any reason, say you mistakenly use the =length= function when testing the length of a string (=length= only works with lists), the function will return an error, and the guard clause will simply fail.
+
+* Sigils
+Indicated with the =~= character, they are shorthand for various expressions/functions.
+
+#+begin_src elixir-ts
+~w/Moose \n wobbler/ # ["Moose, "wobbler]
+~W/Moose \n wobbler/ # ["Moose" "\n" "Wobbler"]
+~w/Moose wobbler/a   # [:Moose, :wobbler]
+~c/Hello \x26 Moose/ # "Hello & Moose"
+
+name = "Fred"
+~c/Hello #{name}/    # "Hello Fred"
+
+Regex.match(~r/^Fred/, "Fred wobbler") # true
+
+~D/2025-01-01/       # Retuens a date struct
+~T/16:20:00/         # returns a time struct
+#+end_src
+
+All sigils are defined in =Kermel.sigil_*=
+
+Sigils can be user-defined in a module like so:
+
+#+begin_src elixir-ts
+defmodule MySigils do
+  def sigil_u(string, _modifiers) do
+    String.upcase(string)
+  end
+end
+
+import MySigils
+
+~u/This will be annoying loud./
+#+end_src
+
+* Collection processing
+Remember that the capture operator =&= can be used to create terse anonymous functions like so:
+
+#+begin_src elixir-ts
+l = [1, 2, 3]
+
+# Without:
+result  = Enum.map(l, fn x -> x x * 2 end)
+
+# With:
+result = Enum.map(l, %(&1 * 2))
+#+end_src
+
+** Mapping
+Here's how to implement =map= yourself:
+
+#+begin_src elixir-ts
+defmodule Util do
+  import Enum, only: [reverse: 1]
+
+  def map(list, fun) when is_list(list) and is_function(fun) do
+    do_map(list, [], fun)
+  end
+
+  defp do_map([head | tail], result, fun) do
+    do_map(tail, [fun.(head) | result], fun)
+  end
+
+  defp do_map([], result, _fun),
+       do: reverse(result)
+end
+#+end_src
+
+** Filter
+Not much to say here, it's filtering.
+** Reduce
+This one always breaks my dyslexic brain for some reason.  I think it's the reduce-left vs reduce-right thingie.
+
+The =reduce= function can do anything the map/filter etc can do.  They just make it more obvious /what/ they're doing.
+
+#+begin_src elixir-ts
+# Add a list of numbers
+Enum.reduce([1, 2, 3, 4, 5], &+/2)      # -> 15
+Enum.reduce([1, 2, 3, 4, 5], 100, &+/2) # -> 115
+#+end_src
+
+** Stream
+** Comprehensions
+* Documentation
+Using the =mix= build system, 'examples' in the doc string can be automatically run as tests.  This is fucking awesome!
+
 * Random coding "stuff"
+*:erlang.system_info/1* - use to determine current system settings/limits.  For example:
+
+#+begin_src elixir
+:erlang.system_info(:atom_limit)
+#+end_src
+
 *IO.Inspect* - will print out info about what it's passed, and then return whatever it was passed.  Meaning, you can stick this in the middle of a pipeline operation to get info abour what's being passed to the next function.
 
 You can also pass in a keyword list with formatting options:
 
 ~IO.inspect(var, label: "Thing the first", width: 0)~
 
-* Modules
-Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
+* Sample code
+** Module with pattern matched function
+Module to determine user's eligibility to vote.
 
-Module names are converted to atoms under the hood.
+Shows pattern matching, a catch-all (error) clause and documentation (which doubles as a rest suite).
+
+#+begin_src elixir-ts
+defmodule Voter do
+  @moduledoc """
+  Voter predicates.
+  """
+
+  @doc """
+  Determine voter eligibility based on age.
+
+  ## Parameters
+
+  - age: Integer or string representation.
+
+  ## Examples
+
+      ex> Voter.eligibilty(17)
+      "Get lost, kid."
+
+      iex> Voter.eligibilty(18)
+      "You can vote!"
+
+      iex> Voter.eligibilty(26)
+      "You can vote and run for office"
+
+      iex> Voter.elibility("24")
+      "You can vote!"
+
+      iex> Voter.eligibilty("Moose")
+      "Stop wasting both my and your time."
+  """
+
+  def eligibilty(age) when is_binary(age) do
+    eligibilty(Integer.parse(age))
+  end
+
+  def eligibilty(age) when is_integer(age) do
+    cond do
+      age < 18 -> "Get lost, kid."
+      age < 25 -> "You can vote!"
+      true -> "You can vote and run for office.  Good luck."
+    end
+  end
+
+  # Will be called by 'when is_binary' when is a valid integer.
+  def eligibilty({age, _}) do
+    eligibilty(age)
+  end
+
+  # Will be called by 'when is_binary' when invalid integer.
+  def eligibilty(:error) do
+    "Stop wasting both my and your time."
+  end
+
+  # Called when none of the above match.
+  def eligibilty(_) do
+    {:error, "Invalid input, int or string rquired."}
+  end
+end
+
+end
+#+end_src
+** Pattern matching in an anonymous function
+#+begin_src elixir-ts
+get_logn = fn
+  (:democrat) -> "donkey.png"
+  (:republican) -> "elephand.png"
+  (:green) -> "flower.png"
+    (_) -> "missing.png"
+end
+
+get_logo.(:green) # "flower.png"
+#+end_src

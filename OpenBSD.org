@@ -20,6 +20,7 @@ Turn off ~sndiod, smtpd~, turn on ~wsmoused~ if you want it.
 Kill unwanted TTYs in ~/etc/ttys~
 * Services
 All done via ~rcctl~:
+
 #+begin_src bash
 # list
 rcctl ls all|failed|off|on|started|stopped
@@ -33,7 +34,9 @@ rcctl get|getdef|set
 # enabling
 rcctl enable|disable
 #+end_src
+
 This is a front-end for ~/etc/rc.conf~, automatically creating and adding to ~/etc/rc.conf.local~, always leaving the original untouched (so system updates don't effect your changes).
+
 * Networking
 [[https://ftp.openbsd.org/pub/OpenBSD/doc/obsd-faq.txt][Part 6 of the FAQ]] - read through it all, try stuff out and take notes.
 [[https://www.youtube.com/watch?v=6_FHs_g1yw4&disable_polymer=true][Networking 101]] - watch and take notes.
@@ -50,6 +53,7 @@ This is a front-end for ~/etc/rc.conf~, automatically creating and adding to ~/e
 If, for whatever reason, I need to edit ~/etc/master.passwd~, use the ~vipw~ tool, which will regenerate things that may need regenerating.
 * Keymapping
 The only one that matters:
+
 #+begin_src bash
 wsconsctl keyboard.map+="keysym Caps_Lock = Control_l"
 #+end_src

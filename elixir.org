@@ -6,10 +6,11 @@
 
 Note that this is a convention, the compiler doesn't give a crap.
 ** Naming
- - Module :: Capitalise.
+ - Module :: CamelCase.
  - functions :: Lower snake_case.
  - Variables :: Lower snake_case.
  - Unused variable :: Start with an underscore.
+ - Module attrbutes :: alllowercase.
 
  Note that all modules have the implicit name =Elixir= pre-pended to them, so to get a list of all available modules in =iex=, just type =Elixir.= and hit tab.
 
@@ -18,9 +19,19 @@ Simple syntax: ~:string.len(~c"abc")~ will call the function ~len~ contained in 
 
 ** Mix
 Dependency manager, project creation/building/testing.
-- =.ex= :: Source code to be compiled into byte-code (AOT).
-- =.exs= :: File to be used as a script - compiled at run-time (interpreted).
-
+- mix new <name> :: Create new project (see below for layout).
+- mix help :: List top-level commands.
+- mix format :: Format the project's source code.
+- mix test :: Guess....
+** Project layout
+/ (root)
+- README.md
+- mix.exs (project file)
+- lib
+  - project_file.ex
+- test
+  - project_test.exs (tests for project.ex)
+  - test_helper.exs (used by mix.exs)
 * IEX
 iex will auto-load any =.beam= module found in the directory that you run it from.
 
@@ -32,9 +43,69 @@ Once in iex, any changes made to the module can be re-compiled with the =r= comm
 
 =r(ModuleName)=
 
+You can also tell iex to compile and load a =mix= project by calling it like so from the project's root:
+
+=iex -S mix=
+
 To start the observer from =iex=, use =:observer.start()=.
 
-Get info on any symbol with =i(foo)= and help on any function with =h(Foo.bar/1)=.Host
+Get info on any symbol with =i(foo)= and help on any function with =h(Foo.bar/1)=.
+
+* Modules
+Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
+
+Module names are converted to atoms under the hood.
+
+** Module attributes
+
+Module attributes are evaluated at /compile time/.
+
+#+begin_src elixir-ts
+defmodule Party do
+  @mascots %{   # COMPILE TIME!
+     silly: "clown",
+     green: "flower",
+   }
+
+  @parties Map.keys(mascots)
+
+  # Default paramater, so can be called as mascot(:silly).  Will
+  # automatically call next function down.
+  def logo(party, size \\ :small)
+
+  # 'Happy' path
+  def logo(party, size) when party in parties do
+    mascot = @mascots[party]
+    do_logo(mascot, size)
+  end
+
+  # When unknown party is passed in.  Again, becaue of the order that
+  # pattern matching happens, this has to come ofter the happy-path
+  # function.
+  def logo(_, size), :do do_logo("other", size)
+
+  # Example of single-line functions.
+  # IMPORTANT - pattern matching functions are tested in the order that
+  # they are written!
+  defp do_logo(mascot, :small), do: "#{mascot}_small.png"
+  defp do_logo(mascot, _other_size), do: "#{mascot}_normal.png"
+end
+#+end_src
+
+** Importing
+#+begin_src elixir-ts
+defmodule fred do
+  import Enum                    # imports all functions
+  import Enum, only: [reverse: 1] # import a list of functions
+
+  def stuff(list) do
+    #...
+    Enum.reverse(list) # without using import
+    reverse(list)      # using import
+  end
+end
+#+end_src
+
 * Types
 ** Values
  - Integers :: Bignums, yay!
@@ -65,7 +136,7 @@ Get info on any symbol with =i(foo)= and help on any function with =h(Foo.bar/1)
    Interpolation is the same as Ruby: ~"My dog has #{legs} legs."~
 
 ** System types
- - PID (process ID) :: Local or remote process IDs.  Get the current with the ~self~ keyword.  Ports are references to external (to the application) resources.
+ - PID (process ID) :: Local or remote process IDs.  Get the current with the ~self()~ function.  Ports are references to external (to the application) resources.
 
  - References :: Globally unique references, made with the ~make_ref~ function.
 
@@ -165,13 +236,13 @@ defmodule Doggo do
   # Default values can (optionally) be set here.
   # They must come after fields with no default, as
   # a keyword list.
-  defstruct dog [:age, name: "Set me!", breed: "Unkown"]
+  defstruct [:age, name: "Set me!", breed: "Unkown"]
 end
 
 fred = %Doggo{name: "Fred", breed: "English Setter", age: 13}
 #+end_src
 
-*NOTE*: Structs are basically maps, and so all of the ~Map~ module's functions can be applied to them.  They do /not/, however, implement the ~Collectable~ and ~Enumerable~ protocols.  /Structs are maps, but maps are bot structs./
+*NOTE*: Structs are basically maps, and so all of the ~Map~ module's functions can be applied to them.  They do /not/, however, implement the ~Collectable~ and ~Enumerable~ protocols.  /Structs are maps, but maps are not structs./
 
 * Variables
 Dynamically bound, statically typed.
@@ -403,61 +474,6 @@ Note that =when= has to be used for checking ranges etc.
 ~!==~ - strict inequality.
 ~==~  - value equality, the usual.
 
-* Modules
-Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
-
-Module names are converted to atoms under the hood.
-
-** Module attributes
-
-Module attributes are evaluated at /compile time/.
-
-#+begin_src elixir-ts
-defmodule Party do
-  @mascots %{   # COMPILE TIME!
-     silly: "clown",
-     green: "flower",
-   }
-
-  @parties Map.keys(mascots)
-
-  # Default paramater, so can be called as mascot(:silly).  Will
-  # automatically call next function down.
-  def logo(party, size \\ :small)
-
-  # 'Happy' path
-  def logo(party, size) when party in parties do
-    mascot = @mascots[party]
-    do_logo(mascot, size)
-  end
-
-  # When unknown party is passed in.  Again, becaue of the order that
-  # pattern matching happens, this has to come ofter the happy-path
-  # function.
-  def logo(_, size), :do do_logo("other", size)
-
-  # Example of single-line functions.
-  # IMPORTANT - pattern matching functions are tested in the order that
-  # they are written!
-  defp do_logo(mascot, :small), do: "#{mascot}_small.png"
-  defp do_logo(mascot, _other_size), do: "#{mascot}_normal.png"
-end
-#+end_src
-
-** Importing
-#+begin_src elixir-ts
-defmodule fred do
-  import Enum                    # imports all functions
-  import Enum, only: [reverse: 1] # import a list of functions
-
-  def stuff(list) do
-    #...
-    Enum.reverse(list) # without using import
-    reverse(list)      # using import
-  end
-end
-#+end_src
-
 * Guards
 - Comparisons :: ====, =<=, =>=, etc
 - Boolean operations :: =and=, =or=, =not=
@@ -539,8 +555,6 @@ end
 ** Filter
 Not much to say here, it's filtering.
 ** Reduce
-This one always breaks my dyslexic brain for some reason.  I think it's the reduce-left vs reduce-right thingie.
-
 The =reduce= function can do anything the map/filter etc can do.  They just make it more obvious /what/ they're doing.
 
 #+begin_src elixir-ts
@@ -550,18 +564,175 @@ Enum.reduce([1, 2, 3, 4, 5], 100, &+/2) # -> 115
 #+end_src
 
 ** Stream
+The collection functions in =Enum= are all eager.  To use 'lazy' implementations, we use the =Stream= module.  It has many matching functions like =sum=, =map=, =filter= etc.
+
+=Stream= functions will return a function, /not/ a value.  To realise the stream, pass it to an 'eager' function:
+
 ** Comprehensions
+"Comprehensions can be used to produce more concise statements for /Enum/ and /Stream/ iteration."
+
+Comprehensions Work on all enumerables (lists, maps) etc., and use the keyword =for=, alongside a generator.  A generator in this case, is the function applied to each element:
+
+#+begin_src elixir-ts
+# (x <- x * x) is the generator:
+for x <- [1, 2, 3], do: x * x
+# -> [1, 4, 9]
+
+for {key, value} <- %{a: 1, b: 2}, do: value
+# -> [1, 2]
+
+for {:ok, value} <- [ok: 1, error: 2, ok: 3], do: value
+# -> [1, 3]
+
+# Cross-product
+for x <- [1, 2, 3],
+    y <- [4 ,5, 6],
+    do: x * y
+
+# -> [4, 5, 6, 8, 10, 12, 12, 15, 18]
+#+end_src
+
+** Pinning
+Note, that if you want to use a variable in a generator's pattern matching, it will need a =^= in front of it, otherwise it's treated as a symbol.  This is called 'pinning'
+
+#+begin_src elixir-ts
+state = "CA"
+
+ballots = [
+  %{id: 1, state: "CA"},
+  %{id: 2, state: "WA"}
+]
+
+# Patter match a map against one of the keys.
+# This will return all ballots, as 'state' is not captured.
+stuff = for foo = %{state: state} <- ballots, do: foo
+
+# Insteas, use the pininng operatos:
+stuff = for foo = %{state: ^state} <- ballots, do: foo
+
+# Of course, you can just use a lieral value:
+stuff = for foo = %{state: "CA"} <- ballots, do: foo
+#+end_src
+
+* Macros
+* Protocols
+Basically, how Elixir handles extensible polymorphism, other than with pattern-matching.
+
+Library creator creates the protocol, consumers extend it.
+
+#+begin_src elixir-ts
+defprotocol Fred do
+  def some_function(data)
+end
+
+defimpl Fred, for: List do
+  def some_function(data) do
+    //...
+  end
+end
+#+end_src
+* You've got mail
+** Spawning
+
+#+begin_src elixir-ts
+origin = self()
+
+fun = fn ->
+  IO.puts("Running fun...")
+  send origin {:ok, "Moose"}
+end
+
+spawn fun
+spawn fun
+spawn fun
+
+Process.info(self(), :messages)
+# -> {:messages, [ok: "Moose", ok: "Moose", ok: "Moose"]}
+#+end_src
+
+** Concurrent spawning
+
+#+begin_src elixir-ts
+machine_ips = [
+  "192.168.0.1",
+  "192.168.0.2",
+  "192.168.0.3",
+  "192.168.0.4",
+  "192.168.0.5",
+  "192.168.0.6",
+  "192.168.0.7",
+  "192.168.0.8",
+  "192.168.0.9",
+  "192.168.0.10"
+]
+
+api_call = fn ip ->
+  IO.puts(ip)
+  :timer.sleep(500)
+  Enum.random(1..10)
+end
+
+# The following will call the api on each ip address, in sequence, and then sum
+# the results.
+
+# machine_ips
+# |> Enum.map(api_call)
+# |> Enum.sum()
+# |> IO.inspect
+
+#|> Enum.map(Fred.api_call/1)
+# To have them run in parallel, use spawn and pass in function, along with a
+# list of arguments to pass in:
+
+defmodule Worker do
+  def start(fun) do
+    pid = self()
+    # Note that the call to self() will happen inside the spawnwed function.
+    spawn(fn ->
+      send(pid, {self(), fun.()})
+    end)
+  end
+
+  def wait(pid) do
+    receive do
+      # This will block until one of the messages has a matching ip value.
+      {^pid, result} -> result
+    end
+  end
+end
+
+machine_ips
+|> Enum.map(fn ip -> Worker.start(fn -> api_call.(ip) end) end)
+|> IO.inspect()
+|> Enum.map(&Worker.wait/1)
+|> Enum.sum()
+|> IO.inspect()
+#+end_src
+
+** Receiving
+
+#+begin_src elixir-ts
+result = receive do
+  {:ok, msg } -> msg
+  :error -> :error
+  _ -> :ignored
+end
+#+end_src
+
 * Documentation
 Using the =mix= build system, 'examples' in the doc string can be automatically run as tests.  This is fucking awesome!
 
 * Random coding "stuff"
-*:erlang.system_info/1* - use to determine current system settings/limits.  For example:
+To call an Erlang function, use the module name as an atom like so:
+=:rand.bytes(2)=
+
+=:erlang.system_info/1= - use to determine current system settings/limits.  For example:
 
 #+begin_src elixir
 :erlang.system_info(:atom_limit)
 #+end_src
 
-*IO.Inspect* - will print out info about what it's passed, and then return whatever it was passed.  Meaning, you can stick this in the middle of a pipeline operation to get info abour what's being passed to the next function.
+=IO.Inspect= - will print out info about what it's passed, and then return whatever it was passed.  Meaning, you can stick this in the middle of a pipeline operation to get info abour what's being passed to the next function.
 
 You can also pass in a keyword list with formatting options:
 
@@ -634,6 +805,7 @@ end
 
 end
 #+end_src
+
 ** Pattern matching in an anonymous function
 #+begin_src elixir-ts
 get_logn = fn

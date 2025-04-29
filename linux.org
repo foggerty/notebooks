@@ -3,11 +3,9 @@ Note: I'm skipping a few things here, just focusing on what I'm most likely to u
 
 Used to trigger events for devices under the ~/dev~ directory.
 
-Trigger rules are in ~/lib/udev/rules.d~ (default) and ~/etc/udev/rules.d~ (custom) - ~etc~ takes precedence.
+Trigger rules are in ~/lib/udev/rules.d~ (default) and ~/etc/udev/rules.d~ (custom) - ~etc~ takes precedence and rules are processed in lexical order.
 
-Rules are processed in lexical order, and if a rule has the same name in ~etc~, it will overwrite the default rule.
-
-Each line that's not a comments, are made up of key/value pairs, with 'match' keys and 'assignment' keys:
+Each line that's not a comment, is made up of key/value pairs, with 'match' keys and 'assignment' keys:
  - ~==~ :: Equality.
  - ~!=~ :: Not equal.
  - = :: Assigns a value to a key.

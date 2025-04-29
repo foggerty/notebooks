@@ -4,7 +4,7 @@ Main thing to remember is that this is /not/ a way to run things in parallel.
 #+BEGIN_SRC java
   void AsyncTest()
   {
-      WithAwaitAtCallAsync().Wait();
+      var fred = await WithAwaitAtCallAsync();
   }
 
   async Task WithAwaitAtCallAsync()

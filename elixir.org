@@ -60,7 +60,7 @@ Module names are converted to atoms under the hood.
 
 Module attributes are evaluated at /compile time/.
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule Party do
   @mascots %{   # COMPILE TIME!
      silly: "clown",
@@ -93,7 +93,7 @@ end
 #+end_src
 
 ** Importing
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule fred do
   import Enum                    # imports all functions
   import Enum, only: [reverse: 1] # import a list of functions
@@ -152,14 +152,14 @@ Maps implement the protocols  ~Collectable~ and ~Enumerable~.
 
 To get a new map with updated keys, use the ~|~ operator:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 fred = %{a: 1, b: 2, c: 3} # {c: 3, b: 2, a: 1}
 ethel = %{fred | a: 6}     # {c: 3, b: 2, a:6}
 #+end_src
 
 Note that when keys are atoms, you can access a value using dot notation:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 fred[:a] # is equivilent to
 fred.a
 #+end_src
@@ -181,7 +181,7 @@ There are some basic operations that can be performed on lists:
 *Improper Lists*
 Because lists are basically cons pairs, ~[1, 2] ++ 3~ will result in ~[1, 2 | 3]~, meaning that the last element is a value, not the empty list.  Same as Lisp.  Also like Lisp, using pattern matching as show below, the first value assigned will be an 'atom' (int), while the second will be a list.
 
-#+begin_src elixir-ts
+#+begin_src elixir
 # Pattern matching,
 [a | rest] = [1, 2, 3]
 a # => 1 (int)
@@ -231,7 +231,7 @@ Generally used for passing a collection of values into or out of a function or k
 *** Structs ::
 Structs are defined inside modules.
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule Doggo do
   # Default values can (optionally) be set here.
   # They must come after fields with no default, as
@@ -253,7 +253,7 @@ ToDo - make some notes on Dialyzer (static type hints).
 * Comparisons
 Warning!  Elixir is totally happy with the following, so as to help with sorting algorithms:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 "fred" < 20 # -> false
 nil > 0     # -> true
 nil < 0     # -> false
@@ -268,7 +268,7 @@ Pattern matching includes both assertions and destructuring.  In fact, it's best
 ** Strings
 Use the string concatenation operator - remember, Elixir is asserting that both sides match, and since =id= is a var, it will be populated to make it so.
 
-#+begin_src elixir-ts
+#+begin_src elixir
 msg = "district:9"
 "district:" <> id = message
 
@@ -278,7 +278,7 @@ id # => 9
 Note that the left-hand operand must be wither a constant, or a pinned variable (eg. =^var_name=) for this to work.  Note the second, look up what 'pinned' variables are...
 
 ** Maps
-#+begin_src elixir-ts
+#+begin_src elixir
 fred = %{a: 1, b: 2}
 %{:a 1, b: tmp} = fred
 fred # => 2
@@ -289,7 +289,7 @@ fred # => 2
 What this boils down to is, "all structs are maps, but not all maps are structs."
 
 ** Lists
- #+begin_src elixir-ts
+ #+begin_src elixir
  # A nice way to think of this, is that the below statement can be thought of as "assert that the list on the right side has at least one element."
  [head | _] = [1, 2, 3]
  head # => 1
@@ -301,7 +301,7 @@ What this boils down to is, "all structs are maps, but not all maps are structs.
 
 ** Tuples
 Unlike lists or maps, when matching a tuple, ALL elements need to be matched:
-#+begin_src elixir-ts
+#+begin_src elixir
 {} = {:add, [1, 2]}
 # ERROR!
 {operation, [first, second]} = {:add, [10, 20]}
@@ -337,7 +337,7 @@ Named functions /must/ be defined in modules.
 ** Higher-order functions
 Higher-order functions are called like so:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 add = fn(amnt) ->
   fn(x) -> x + amnt end
 end
@@ -352,7 +352,7 @@ To use a named function as anonymous function (i.e. one passed in as a paramater
 
 For example, the following code has to treat =outer_fun= and =inner_fun= as anonymous functions because they're passed in as parameters:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule Stuff do
   def compose(data, outer_fun, inner_fun) do
     outer_fun.(inner_fun.(data))
@@ -362,7 +362,7 @@ end
 
 Which means that the following call will fail, as =length= and =String.split= are named functions:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 text = "blah bah blah"
 count = Stuff.compose(text, length, String.split)  # ERROR
 
@@ -374,7 +374,7 @@ Note that in the above example you /must/ specify the arity of the function so t
 
 You can also create function with the capture (~&)~ operator and strings or regular expressions:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 fred = &"Moose #{&1}"
 fred.("Wobble") -> "Moose Wobble"
 
@@ -384,7 +384,7 @@ double.(2) # -> 4
 
 Finally the capture operator can be used to create anonymous functions inside, say, mapping functions:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 Enum.map([1, 2, 3], fn x -. X * 2 end)
 # Can be rewritten as:
 Enum.map([1, 2, 3], &(&1 * 2))
@@ -393,7 +393,7 @@ Enum.map([1, 2, 3], &(&1 * 2))
 
 ** Tail-call recusrsion
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule Util do
   def sum(list), do: do_sum(list, 0)
   defp do_sum([head | tail], total), do: do_sum(tail, total + head)
@@ -404,7 +404,7 @@ end
 * Pipe operator |>
 Same as the threading macro in Clojure:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 filing = DB.find_customers
 |> get_orders
 |> add_sales_tax(2022)
@@ -418,7 +418,7 @@ First, remember that everything in Elixir is an expression, so no actual 'statem
 
 That includes =if= statements (which again, are expressions):
 
-#+begin_src elixir-ts
+#+begin_src elixir
 fred = if true do 10 else 20 end
 fred # -> true
 
@@ -437,7 +437,7 @@ end
 ** Cond
 Use =cond= when you want to test a bunch of boolean expressions:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 msg = cond do
   true ->
     "Msg1"
@@ -449,7 +449,7 @@ end
 ** Case
 Use =case= when you want to match against a set of patterns:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 age =
   IO.gets("Age: ")
   |> Integer.parse()
@@ -488,7 +488,7 @@ Only functions in  =Kernel= module can be used as guards.  Note that the documen
 * Sigils
 Indicated with the =~= character, they are shorthand for various expressions/functions.
 
-#+begin_src elixir-ts
+#+begin_src elixir
 ~w/Moose \n wobbler/ # ["Moose, "wobbler]
 ~W/Moose \n wobbler/ # ["Moose" "\n" "Wobbler"]
 ~w/Moose wobbler/a   # [:Moose, :wobbler]
@@ -507,7 +507,7 @@ All sigils are defined in =Kermel.sigil_*=
 
 Sigils can be user-defined in a module like so:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule MySigils do
   def sigil_u(string, _modifiers) do
     String.upcase(string)
@@ -522,7 +522,7 @@ import MySigils
 * Collection processing
 Remember that the capture operator =&= can be used to create terse anonymous functions like so:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 l = [1, 2, 3]
 
 # Without:
@@ -535,7 +535,7 @@ result = Enum.map(l, %(&1 * 2))
 ** Mapping
 Here's how to implement =map= yourself:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule Util do
   import Enum, only: [reverse: 1]
 
@@ -557,7 +557,7 @@ Not much to say here, it's filtering.
 ** Reduce
 The =reduce= function can do anything the map/filter etc can do.  They just make it more obvious /what/ they're doing.
 
-#+begin_src elixir-ts
+#+begin_src elixir
 # Add a list of numbers
 Enum.reduce([1, 2, 3, 4, 5], &+/2)      # -> 15
 Enum.reduce([1, 2, 3, 4, 5], 100, &+/2) # -> 115
@@ -573,7 +573,7 @@ The collection functions in =Enum= are all eager.  To use 'lazy' implementations
 
 Comprehensions Work on all enumerables (lists, maps) etc., and use the keyword =for=, alongside a generator.  A generator in this case, is the function applied to each element:
 
-#+begin_src elixir-ts
+#+begin_src elixir
 # (x <- x * x) is the generator:
 for x <- [1, 2, 3], do: x * x
 # -> [1, 4, 9]
@@ -595,7 +595,7 @@ for x <- [1, 2, 3],
 ** Pinning
 Note, that if you want to use a variable in a generator's pattern matching, it will need a =^= in front of it, otherwise it's treated as a symbol.  This is called 'pinning'
 
-#+begin_src elixir-ts
+#+begin_src elixir
 state = "CA"
 
 ballots = [
@@ -620,7 +620,7 @@ Basically, how Elixir handles extensible polymorphism, other than with pattern-m
 
 Library creator creates the protocol, consumers extend it.
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defprotocol Fred do
   def some_function(data)
 end
@@ -634,7 +634,7 @@ end
 * You've got mail
 ** Spawning
 
-#+begin_src elixir-ts
+#+begin_src elixir
 origin = self()
 
 fun = fn ->
@@ -652,7 +652,7 @@ Process.info(self(), :messages)
 
 ** Concurrent spawning
 
-#+begin_src elixir-ts
+#+begin_src elixir
 machine_ips = [
   "192.168.0.1",
   "192.168.0.2",
@@ -711,7 +711,7 @@ machine_ips
 
 ** Receiving
 
-#+begin_src elixir-ts
+#+begin_src elixir
 result = receive do
   {:ok, msg } -> msg
   :error -> :error
@@ -744,7 +744,7 @@ Module to determine user's eligibility to vote.
 
 Shows pattern matching, a catch-all (error) clause and documentation (which doubles as a rest suite).
 
-#+begin_src elixir-ts
+#+begin_src elixir
 defmodule Voter do
   @moduledoc """
   Voter predicates.
@@ -807,7 +807,7 @@ end
 #+end_src
 
 ** Pattern matching in an anonymous function
-#+begin_src elixir-ts
+#+begin_src elixir
 get_logn = fn
   (:democrat) -> "donkey.png"
   (:republican) -> "elephand.png"

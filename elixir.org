@@ -529,7 +529,7 @@ l = [1, 2, 3]
 result  = Enum.map(l, fn x -> x x * 2 end)
 
 # With:
-result = Enum.map(l, %(&1 * 2))
+result = Enum.map(l, &(&1 * 2))
 #+end_src
 
 ** Mapping
@@ -650,6 +650,19 @@ Process.info(self(), :messages)
 # -> {:messages, [ok: "Moose", ok: "Moose", ok: "Moose"]}
 #+end_src
 
+Note that =spawn/1= is used for anonymous functions.  Use =spawn/3= for named functions.
+
+** Receiving
+
+#+begin_src elixir
+result = receive do
+  {:ok, msg } -> msg
+  # Optional timeout.
+  :after
+  2_000 -> {:error, "Timeout"}
+end
+#+end_src
+
 ** Concurrent spawning
 
 #+begin_src elixir
@@ -666,21 +679,19 @@ machine_ips = [
   "192.168.0.10"
 ]
 
-api_call = fn ip ->
-  IO.puts(ip)
+api_call = fn _ip ->
   :timer.sleep(500)
   Enum.random(1..10)
 end
 
-# The following will call the api on each ip address, in sequence, and then sum
-# the results.
+# The following will call the api on each ip address, in sequence, wait the
+# result, and then sum the results.
 
-# machine_ips
-# |> Enum.map(api_call)
-# |> Enum.sum()
-# |> IO.inspect
+machine_ips
+|> Enum.map(api_call)
+|> Enum.sum()
+|> IO.inspect
 
-#|> Enum.map(Fred.api_call/1)
 # To have them run in parallel, use spawn and pass in function, along with a
 # list of arguments to pass in:
 
@@ -709,13 +720,87 @@ machine_ips
 |> IO.inspect()
 #+end_src
 
-** Receiving
+** Linking processes
+
+Used in the case where if one process fails, all should fail.
 
 #+begin_src elixir
-result = receive do
-  {:ok, msg } -> msg
-  :error -> :error
-  _ -> :ignored
+# Either use the Provess.link/1 function:
+
+defmodule Worker do
+  def start(fun) do
+    pid = self()
+    new_pid = spawn(fn ->
+      send(pid, {self(), fun.()})
+    end)
+    # Not a great idea ,as the above may fail before link() is called...
+    Process.link(new_pid)
+    new_pid
+  end
+end
+
+# or, use the :thing option in the spawn macro:
+
+defmodule Worker do
+  def start(fun) do
+    pid = self()
+    spawn_link(fn ->
+      send(pid, {self(), fun.()})
+    end)
+  end
+end
+#+end_src
+
+** Long-running processes
+
+Used for things like DB/API connections.
+
+#+begin_src elixir
+defmodule Counter do def start_link(init_value \\ 0) when is_integer(init_value) do
+  spawn_link(Counter, :run, [init_value]) end
+
+  def inc(pid) when is_pid(pid) do
+    send(pid, :increment)
+  end
+
+  def dec(pid) when is_pid(pid) do
+    send(pid, :decrement)
+  end
+
+  def current(pid) when is_pid(pid) do
+    # Remember that self() will return the pid of the process that CALLS this
+    # function (it's going to take a while for my brain to adjust...)
+    send(pid, {:current, self())}
+
+    # Argh, and this isn't helping.... Again, remember that this function will
+    # be called by another process, and so we're accessing that processes'
+    # mailbox from within that process.  Stop thinking that a module is a
+    # class....  Stop thinking of a module as a class....
+
+    receive do
+      {^pid, count} -> count
+    end
+  end
+
+  defp run(count) do
+    receive do
+      msg ->
+        handle(msg, count)
+    end
+    # Pass the value back into run, which a) maintains state and b) keeps the
+    # process running forever.
+    |> run()
+  end
+
+  defp handle(:increment, count), do: count +1
+  defp handle(:decrement, count), do: count -1
+
+  defp handle({:current, sender}, count) when is_pid(sender) do
+    send(sender, count)
+    count
+  end
+
+  defp handle(msg, count), do: IO.inspect(msg, "Unknown message.")
 end
 #+end_src
 

@@ -32,6 +32,25 @@ Dependency manager, project creation/building/testing.
 - test
   - project_test.exs (tests for project.ex)
   - test_helper.exs (used by mix.exs)
+* Documentation
+Using the =mix= build system, 'examples' in the doc string can be automatically run as tests.  This is fucking awesome!
+
+* Random coding "stuff"
+To call an Erlang function, use the module name as an atom like so:
+=:rand.bytes(2)=
+
+=:erlang.system_info/1= - use to determine current system settings/limits.  For example:
+
+#+begin_src elixir
+:erlang.system_info(:atom_limit)
+#+end_src
+
+=IO.Inspect= - will print out info about what it's passed, and then return whatever it was passed.  Meaning, you can stick this in the middle of a pipeline operation to get info abour what's being passed to the next function.
+
+You can also pass in a keyword list with formatting options:
+
+~IO.inspect(var, label: "Thing the first", width: 0)~
+
 * IEX
 iex will auto-load any =.beam= module found in the directory that you run it from.
 
@@ -51,60 +70,21 @@ To start the observer from =iex=, use =:observer.start()=.
 
 Get info on any symbol with =i(foo)= and help on any function with =h(Foo.bar/1)=.
 
-* Modules
-Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
-
-Module names are converted to atoms under the hood.
-
-** Module attributes
-
-Module attributes are evaluated at /compile time/.
+* Comparisons
+Warning!  Elixir is totally happy with the following, so as to help with sorting algorithms:
 
 #+begin_src elixir
-defmodule Party do
-  @mascots %{   # COMPILE TIME!
-     silly: "clown",
-     green: "flower",
-   }
-
-  @parties Map.keys(mascots)
-
-  # Default paramater, so can be called as mascot(:silly).  Will
-  # automatically call next function down.
-  def logo(party, size \\ :small)
-
-  # 'Happy' path
-  def logo(party, size) when party in parties do
-    mascot = @mascots[party]
-    do_logo(mascot, size)
-  end
-
-  # When unknown party is passed in.  Again, becaue of the order that
-  # pattern matching happens, this has to come ofter the happy-path
-  # function.
-  def logo(_, size), :do do_logo("other", size)
-
-  # Example of single-line functions.
-  # IMPORTANT - pattern matching functions are tested in the order that
-  # they are written!
-  defp do_logo(mascot, :small), do: "#{mascot}_small.png"
-  defp do_logo(mascot, _other_size), do: "#{mascot}_normal.png"
-end
+"fred" < 20 # -> false
+nil > 0     # -> true
+nil < 0     # -> false
 #+end_src
 
-** Importing
-#+begin_src elixir
-defmodule fred do
-  import Enum                    # imports all functions
-  import Enum, only: [reverse: 1] # import a list of functions
-
-  def stuff(list) do
-    #...
-    Enum.reverse(list) # without using import
-    reverse(list)      # using import
-  end
-end
-#+end_src
+The rule is:
+=number < atom < reference < function < port < id < tuple < map < list < bitstring=
+* Operators / equality
+~===~ - strict equality (i.e. 3.0 will not "equal" 3).
+~!==~ - strict inequality.
+~==~  - value equality, the usual (i.e. 3.0 will equal 3).
 
 * Types
 ** Values
@@ -250,71 +230,6 @@ Dynamically bound, statically typed.
 Any variable starting with =_= will be ignored by the compiler.
 
 ToDo - make some notes on Dialyzer (static type hints).
-* Comparisons
-Warning!  Elixir is totally happy with the following, so as to help with sorting algorithms:
-
-#+begin_src elixir
-"fred" < 20 # -> false
-nil > 0     # -> true
-nil < 0     # -> false
-#+end_src
-
-The rule is:
-=number < atom < reference < function < port < id < tuple < map < list < bitstring=
-* Pattern Matching
-** Overview
-Pattern matching includes both assertions and destructuring.  In fact, it's best to think of them as assertions, that the pattern matches (and so can undergo desructuring).
-
-** Strings
-Use the string concatenation operator - remember, Elixir is asserting that both sides match, and since =id= is a var, it will be populated to make it so.
-
-#+begin_src elixir
-msg = "district:9"
-"district:" <> id = message
-
-id # => 9
-#+end_src
-
-Note that the left-hand operand must be wither a constant, or a pinned variable (eg. =^var_name=) for this to work.  Note the second, look up what 'pinned' variables are...
-
-** Maps
-#+begin_src elixir
-fred = %{a: 1, b: 2}
-%{:a 1, b: tmp} = fred
-fred # => 2
-%{a: 4, v: tmp} = fred # ERROR - cannot match
-#+end_src
-
-** Structs
-What this boils down to is, "all structs are maps, but not all maps are structs."
-
-** Lists
- #+begin_src elixir
- # A nice way to think of this, is that the below statement can be thought of as "assert that the list on the right side has at least one element."
- [head | _] = [1, 2, 3]
- head # => 1
-
- [head | rest] = [1, 2, 3]
- head # => 1
- rest ## => [2, 3]
- #+end_src
-
-** Tuples
-Unlike lists or maps, when matching a tuple, ALL elements need to be matched:
-#+begin_src elixir
-{} = {:add, [1, 2]}
-# ERROR!
-{operation, [first, second]} = {:add, [10, 20]}
-operation # => :add
-first     # => 10
-second    # => 20
-{operation, _} = {:add, [1, 2]}
-operation  # => :add
-{first, _ third} = {1, 2, 3}
-first # => 1
-third # => 3
-#+end_src
-
 * Functions
 #+begin_src elixir
 sum = fn(a, b) ->
@@ -401,6 +316,71 @@ defmodule Util do
 end
 #+end_src
 
+* Guards
+- Comparisons :: ====, =<=, =>=, etc
+- Boolean operations :: =and=, =or=, =not=
+- Arithmetic :: =1 + 2=
+- in / not in :: =args in [:a, :b]=
+- type check :: =is_list()= etc
+
+Only functions in  =Kernel= module can be used as guards.  Note that the documentation will indicate if a function can be used as a guard.
+
+/Warning/: if a function in a guard clause fails for any reason, say you mistakenly use the =length= function when testing the length of a string (=length= only works with lists), the function will return an error, and the guard clause will simply fail.
+
+* Pattern Matching
+** Overview
+Pattern matching includes both assertions and destructuring.  In fact, it's best to think of them as assertions, that the pattern matches (and so can undergo desructuring).
+
+** Strings
+Use the string concatenation operator - remember, Elixir is asserting that both sides match, and since =id= is a var, it will be populated to make it so.
+
+#+begin_src elixir
+msg = "district:9"
+"district:" <> id = message
+
+id # => 9
+#+end_src
+
+Note that the left-hand operand must be wither a constant, or a pinned variable (eg. =^var_name=) for this to work.  Note the second, look up what 'pinned' variables are...
+
+** Maps
+#+begin_src elixir
+fred = %{a: 1, b: 2}
+%{:a 1, b: tmp} = fred
+fred # => 2
+%{a: 4, v: tmp} = fred # ERROR - cannot match
+#+end_src
+
+** Structs
+What this boils down to is, "all structs are maps, but not all maps are structs."
+
+** Lists
+ #+begin_src elixir
+ # A nice way to think of this, is that the below statement can be thought of as "assert that the list on the right side has at least one element."
+ [head | _] = [1, 2, 3]
+ head # => 1
+
+ [head | rest] = [1, 2, 3]
+ head # => 1
+ rest ## => [2, 3]
+ #+end_src
+
+** Tuples
+Unlike lists or maps, when matching a tuple, ALL elements need to be matched:
+#+begin_src elixir
+{} = {:add, [1, 2]}
+# ERROR!
+{operation, [first, second]} = {:add, [10, 20]}
+operation # => :add
+first     # => 10
+second    # => 20
+{operation, _} = {:add, [1, 2]}
+operation  # => :add
+{first, _ third} = {1, 2, 3}
+first # => 1
+third # => 3
+#+end_src
+
 * Pipe operator |>
 Same as the threading macro in Clojure:
 
@@ -469,21 +449,60 @@ msg =
 
 Note that =when= has to be used for checking ranges etc.
 
-* Operators / equality
-~===~ - strict equality (i.e. 3.0 will not "equal" 3).
-~!==~ - strict inequality.
-~==~  - value equality, the usual.
+* Modules
+Modules may have meta-data associated with them via the ~@~ operator.  "Many Elixir programmers employ them [for] constants."
 
-* Guards
-- Comparisons :: ====, =<=, =>=, etc
-- Boolean operations :: =and=, =or=, =not=
-- Arithmetic :: =1 + 2=
-- in / not in :: =args in [:a, :b]=
-- type check :: =is_list()= etc
+Module names are converted to atoms under the hood.
 
-Only functions in  =Kernel= module can be used as guards.  Note that the documentation will indicate if a function can be used as a guard.
+** Module attributes
 
-/Warning/: if a function in a guard clause fails for any reason, say you mistakenly use the =length= function when testing the length of a string (=length= only works with lists), the function will return an error, and the guard clause will simply fail.
+Module attributes are evaluated at /compile time/.
+
+#+begin_src elixir
+defmodule Party do
+  @mascots %{   # COMPILE TIME!
+     silly: "clown",
+     green: "flower",
+   }
+
+  @parties Map.keys(mascots)
+
+  # Default paramater, so can be called as mascot(:silly).  Will
+  # automatically call next function down.
+  def logo(party, size \\ :small)
+
+  # 'Happy' path
+  def logo(party, size) when party in parties do
+    mascot = @mascots[party]
+    do_logo(mascot, size)
+  end
+
+  # When unknown party is passed in.  Again, becaue of the order that
+  # pattern matching happens, this has to come ofter the happy-path
+  # function.
+  def logo(_, size), :do do_logo("other", size)
+
+  # Example of single-line functions.
+  # IMPORTANT - pattern matching functions are tested in the order that
+  # they are written!
+  defp do_logo(mascot, :small), do: "#{mascot}_small.png"
+  defp do_logo(mascot, _other_size), do: "#{mascot}_normal.png"
+end
+#+end_src
+
+** Importing
+#+begin_src elixir
+defmodule fred do
+  import Enum                    # imports all functions
+  import Enum, only: [reverse: 1] # import a list of functions
+
+  def stuff(list) do
+    #...
+    Enum.reverse(list) # without using import
+    reverse(list)      # using import
+  end
+end
+#+end_src
 
 * Sigils
 Indicated with the =~= character, they are shorthand for various expressions/functions.
@@ -614,7 +633,6 @@ stuff = for foo = %{state: ^state} <- ballots, do: foo
 stuff = for foo = %{state: "CA"} <- ballots, do: foo
 #+end_src
 
-* Macros
 * Protocols
 Basically, how Elixir handles extensible polymorphism, other than with pattern-matching.
 
@@ -632,6 +650,8 @@ defimpl Fred, for: List do
 end
 #+end_src
 * You've got mail
+Note that these examples are not how you would usually create processes; OTP is the idiomatic way to do this.
+
 ** Spawning
 
 #+begin_src elixir
@@ -803,27 +823,98 @@ defmodule Counter do def start_link(init_value \\ 0) when is_integer(init_value)
   defp handle(msg, count), do: IO.inspect(msg, "Unknown message.")
 end
 #+end_src
+* Supervisors
+With linked processes (i.e. if A dies, so does B), A can be setup to change a "kill yourself" message into a notification, which arrives as a standard message, and then restart B.  This is essentially how supervisors work.
 
-* Documentation
-Using the =mix= build system, 'examples' in the doc string can be automatically run as tests.  This is fucking awesome!
-
-* Random coding "stuff"
-To call an Erlang function, use the module name as an atom like so:
-=:rand.bytes(2)=
-
-=:erlang.system_info/1= - use to determine current system settings/limits.  For example:
+Note, the code to enable A to get a death notification instead of a death sentence, is:
 
 #+begin_src elixir
-:erlang.system_info(:atom_limit)
+# "Sets the given flag to value for the calling process."
+Process.flag(:trap_exit, true)
 #+end_src
-
-=IO.Inspect= - will print out info about what it's passed, and then return whatever it was passed.  Meaning, you can stick this in the middle of a pipeline operation to get info abour what's being passed to the next function.
-
-You can also pass in a keyword list with formatting options:
-
-~IO.inspect(var, label: "Thing the first", width: 0)~
-
+* Macros
 * Sample code
+** HTTP server with manual supervisor
+#+begin_src elixir
+defmodule HttpServer do
+  require Logger
+
+  @port 8000
+  @http_options [active: false,
+                 packet: :http_bin,
+                 reuseaddr: true]
+
+  def start_link do
+    # Note: if this is called from IEx, and the newly spawned process crashes,
+    # then IEx itself will crash (and restart), because it's linked to the
+    # process.
+    spawn_link(HttpServer, :init, [])
+  end
+
+  def init() do
+    # When a linked process dies, this process will get a message instead of
+    # also dying.
+    Process.flag(:trap_exit, true)
+
+    start_listener()
+    |> supervise()
+  end
+
+  def supervise(socket) do
+    receive do
+      {:EXIT, pid, reason} ->
+        Logger.error("Listener #{inspect(pid)} crashed because: #{reason}")
+        :gen_tcp.close(socket)
+        start_link()
+        |> supervise()
+    end
+  end
+
+  def start_listener do
+    {:ok, socket} = :gen_tcp.listen(@port, @http_options)
+    pid = spawn_link(HttpServer, :accept, [socket])
+    Logger.info("Listener started: #{inspect(pid)}")
+    socket
+  end
+
+  def accept(socket) do
+    # Will block until a request comes in.  Because of the @http_options and @port
+    # set above, it will wait on an HTTP request on port 8000.
+    {:ok, client} = :gen_tcp.accept(socket)
+
+    # The process that created the socket is called the 'controlling
+    # process'. In this instance, we want to pass the socket to another process,
+    # so that this process is just in charge of creating sockets and letting
+    # other processes deal with the details.  That way, if the created process
+    # dies, this central spawning process won't be effected.
+    pid = spawn(HttpServer, :handle, [client])
+    :ok = :gen_tcp.controlling_process(client, pid)
+
+    # Then recurse on self, so that the next request from the socket gets
+    # handled.
+    accept(socket)
+  end
+
+  def handle(client) do
+    Logger.info("New request serviced by #{inspect(self())}")
+
+    body = "Argh!"
+
+    :gen_tcp.send(client, view(body))
+    :gen_tcp.close(client)
+    # At this point the spawned process dies.
+  end
+
+  def view(body) do
+    [
+      "HTTP/1.1 200\n",
+      "Content-Type: text/html\n",
+      "Content-length: #{byte_size(body)}\n\n",
+      body
+    ]
+  end
+end
+#+end_src
 ** Module with pattern matched function
 Module to determine user's eligibility to vote.
 

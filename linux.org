@@ -1,3 +1,39 @@
+* Security
+** Permissions
+Because I always forget the bloody order, permission bits are:
+
+|------+-------+---------|
+| Read | Write | Execute |
+|------+-------+---------|
+|    4 |     2 |       1 |
+|------+-------+---------|
+Order when setting (i.e. =chmod 755 fred=) is /owner/ (user), /group/, /all/.
+
+Mental note to self: group, by default is set to the goup of the person who created it, but can be changed to any group.  A file can be owned by only one group.
+
+If using letters in =chmod=, it's /u, g, o, a/ for user, group, other, all.
+
+** UMASK
+My dyscalculia hates this.....
+
+
+** setuid & setgid &
+This allow anyone with execute access to the file, to run it with the same permissions as the file's owner or group.  Use =chmod u+s <name>= and =chmod g+s <name>=.  Note that using setgid on a directory means that any files created in that directory inherit from the goup of that directory.
+
+Note that in the following:
+#+begin_src shell
+❯ ls -l /usr/bin/sudo
+-rwsr-xr-x 1 root root 276K Oct 22 09:58 /usr/bin/sudo
+#+end_src
+the =s= is lowercase, meaning that the execute bit is also set.  It would be uppercase if it wasn't.
+
+** Sticky bit (applies to directories)
+When set, only the owner (user) can delete or rename files in the directory.  Set with =chmod +t <dir_name>=.  It's indicated with a =t= in place of the =x=:
+
+#+begin_src shell
+❯ ls -ld /tmp
+drwxrwxrwt 15 root root 360 Nov 26 20:33 /tmp/
+#+end_src
 * UDEV
 Note: I'm skipping a few things here, just focusing on what I'm most likely to use.
 
